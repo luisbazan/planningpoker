@@ -43,3 +43,5 @@ dist/
 
 # Vuetify (if you're using it)
 vuetify/dist/
+
+.git_local_repo_credentials
