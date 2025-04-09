@@ -31,10 +31,16 @@ export class GameRepository {
     }
 
     const game = gameDoc.data() as Game;
-    game.players.push(player);
-    game.updatedAt = new Date();
-
-    await updateDoc(gameRef, game);
+    
+    // Check if player already exists
+    const playerExists = game.players.some(p => p.id === player.id);
+    
+    if (!playerExists) {
+      await updateDoc(gameRef, {
+        players: [...game.players, player],
+        updatedAt: new Date()
+      });
+    }
   }
 
   subscribeToGame(gameId: string, callback: (game: Game) => void): () => void {

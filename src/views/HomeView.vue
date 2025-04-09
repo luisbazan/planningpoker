@@ -41,6 +41,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGameStore } from '@/stores/game';
 import { useToast } from 'vue-toastification';
+import { getBrowserId } from '@/utils/browserId';
 
 const router = useRouter();
 const gameStore = useGameStore();
@@ -49,7 +50,7 @@ const gameId = ref('');
 
 const createNewGame = async () => {
   try {
-    const hostId = crypto.randomUUID();
+    const hostId = await getBrowserId();
     const newGameId = await gameStore.createGame(hostId);
     router.push(`/game/${newGameId}`);
   } catch (error) {
@@ -64,7 +65,7 @@ const joinExistingGame = async () => {
   }
 
   try {
-    const playerId = crypto.randomUUID();
+    const playerId = await getBrowserId();
     await gameStore.joinGame(gameId.value, {
       id: playerId,
       name: `Player ${Math.floor(Math.random() * 1000)}`,

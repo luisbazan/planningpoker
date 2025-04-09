@@ -45,3 +45,4 @@ dist/
 vuetify/dist/
 
 .git_local_repo_credentials
+.env
