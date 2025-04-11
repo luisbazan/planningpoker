@@ -3,6 +3,7 @@ export interface Player {
   name: string;
   vote: number | null;
   isReady: boolean;
+  isHost: boolean;
 }
 
 export interface Game {

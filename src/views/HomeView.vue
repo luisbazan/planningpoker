@@ -9,24 +9,17 @@
               <div class="space-y-4">
                 <button
                   @click="createNewGame"
-                  class="w-full px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                  :disabled="isLoading"
+                  class="w-full px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  Create New Game
+                  <span v-if="isLoading && currentAction === 'create'">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </span>
+                  {{ isLoading && currentAction === 'create' ? 'Creating Game...' : 'Create New Game' }}
                 </button>
-                <div class="relative">
-                  <input
-                    v-model="gameId"
-                    type="text"
-                    placeholder="Enter Game ID"
-                    class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    @click="joinExistingGame"
-                    class="mt-2 w-full px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
-                  >
-                    Join Game
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -46,35 +39,26 @@ import { getBrowserId } from '@/utils/browserId';
 const router = useRouter();
 const gameStore = useGameStore();
 const toast = useToast();
-const gameId = ref('');
+const isLoading = ref(false);
+const currentAction = ref<'create' | 'join' | null>(null);
 
 const createNewGame = async () => {
+  if (isLoading.value) return;
+  
+  isLoading.value = true;
+  currentAction.value = 'create';
+  
   try {
     const hostId = await getBrowserId();
+    localStorage.setItem('playerId', hostId);
     const newGameId = await gameStore.createGame(hostId);
     router.push(`/game/${newGameId}`);
   } catch (error) {
     toast.error('Failed to create game');
+  } finally {
+    isLoading.value = false;
+    currentAction.value = null;
   }
 };
 
-const joinExistingGame = async () => {
-  if (!gameId.value) {
-    toast.warning('Please enter a game ID');
-    return;
-  }
-
-  try {
-    const playerId = await getBrowserId();
-    await gameStore.joinGame(gameId.value, {
-      id: playerId,
-      name: `Player ${Math.floor(Math.random() * 1000)}`,
-      vote: null,
-      isReady: false
-    });
-    router.push(`/game/${gameId.value}`);
-  } catch (error) {
-    toast.error('Failed to join game');
-  }
-};
 </script>

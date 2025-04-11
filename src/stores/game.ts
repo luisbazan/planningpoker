@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { Game, Player, GameState } from '@/domain/models/Game';
 import { GameRepository } from '@/infrastructure/repositories/GameRepository';
+import { Subscription } from 'rxjs';
 
 const gameRepository = new GameRepository();
 
@@ -34,9 +35,26 @@ export const useGameStore = defineStore('game', {
       }
     },
 
-    subscribeToGame(gameId: string) {
-      return gameRepository.subscribeToGame(gameId, (game) => {
-        this.currentGame = game;
+    async verifyAndCreatePlayer(gameId: string, playerId: string) {
+      try {
+        await gameRepository.verifyAndCreatePlayer(gameId, playerId);
+      } catch (error) {
+        console.error('Error verifying/creating player:', error);
+        throw error;
+      }
+    },
+
+    subscribeToGame(gameId: string): Subscription {
+      return gameRepository.subscribeToGame(gameId).subscribe({
+        next: (game) => {
+          this.currentGame = game;
+          // Update isHost based on the current player's ID
+          const currentPlayerId = localStorage.getItem('playerId');
+          this.isHost = game.players.some(p => p.id === currentPlayerId && p.isHost);
+        },
+        error: (error) => {
+          console.error('Error in game subscription:', error);
+        }
       });
     }
   },

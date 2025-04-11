@@ -66,11 +66,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGameStore } from '@/stores/game';
-import { useToast } from 'vue-toastification';
 import type { Game } from '@/domain/models/Game';
+import { Subscription } from 'rxjs';
+import { useToast } from 'vue-toastification';
 
 const props = defineProps<{
   id: string;
@@ -81,17 +82,27 @@ const gameStore = useGameStore();
 const toast = useToast();
 const currentVote = ref<number | string | null>(null);
 
-const { currentGame, isHost, canReveal } = gameStore;
+// Use store state directly
+const currentGame = computed(() => gameStore.currentGame);
+const isHost = computed(() => gameStore.isHost);
+const canReveal = computed(() => gameStore.canReveal);
 
-let unsubscribe: (() => void) | null = null;
+let subscription: Subscription | null = null;
 
-onMounted(() => {
-  unsubscribe = gameStore.subscribeToGame(props.id);
-});
+onMounted(async () => {
+  try {
+    const playerId = localStorage.getItem('playerId');
+    if (!playerId) {
+      toast.error('Player ID not found');
+      router.push('/');
+      return;
+    }
 
-onUnmounted(() => {
-  if (unsubscribe) {
-    unsubscribe();
+    await gameStore.verifyAndCreatePlayer(props.id, playerId);
+    subscription = gameStore.subscribeToGame(props.id);
+  } catch (error) {
+    toast.error('Failed to join game');
+    router.push('/');
   }
 });
 
@@ -109,6 +120,15 @@ const nextRound = () => {
 };
 
 const leaveGame = () => {
+  if (subscription) {
+    subscription.unsubscribe();
+  }
   router.push('/');
 };
+
+onUnmounted(() => {
+  if (subscription) {
+    subscription.unsubscribe();
+  }
+});
 </script>
