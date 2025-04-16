@@ -12,6 +12,8 @@ export interface Game {
   players: Player[];
   currentRound: number;
   isRevealEnabled: boolean;
+  mostRepeatedVote: number | string | null;
+  voteCounts: Record<string, number>;
   status: 'waiting' | 'active' | 'finished';
   createdAt: Date;
   updatedAt: Date;

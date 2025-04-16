@@ -44,6 +44,15 @@ export const useGameStore = defineStore('game', {
       }
     },
 
+    async updatePlayerVote(gameId: string, playerId: string, vote: number | string | null) {
+      try {
+        await gameRepository.updatePlayerVote(gameId, playerId, vote);
+      } catch (error) {
+        console.error('Error updating player vote:', error);
+        throw error;
+      }
+    },
+
     subscribeToGame(gameId: string): Subscription {
       return gameRepository.subscribeToGame(gameId).subscribe({
         next: (game) => {
@@ -56,6 +65,24 @@ export const useGameStore = defineStore('game', {
           console.error('Error in game subscription:', error);
         }
       });
+    },
+
+    async revealVotes(gameId: string): Promise<void> {
+      try {
+        await gameRepository.revealVotes(gameId);
+      } catch (error) {
+        console.error('Error revealing votes:', error);
+        throw error;
+      }
+    },
+
+    async nextRound(gameId: string): Promise<void> {
+      try {
+        await gameRepository.nextRound(gameId);
+      } catch (error) {
+        console.error('Error starting next round:', error);
+        throw error;
+      }
     }
   },
 
