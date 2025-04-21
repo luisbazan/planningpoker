@@ -7,8 +7,8 @@ const gameRepository = new GameRepository();
 
 export const useGameStore = defineStore('game', {
   state: (): GameState => ({
-    currentGame: null,
-    playerVotes: new Map(),
+    currentGame: null as Game | null,
+    playerVotes: new Map<string, number>(),
     isHost: false
   }),
 
@@ -124,6 +124,29 @@ export const useGameStore = defineStore('game', {
         // El estado se actualizará automáticamente a través de la suscripción
       } catch (error) {
         console.error('Error rejoining player:', error);
+        throw error;
+      }
+    },
+
+    async transferHost(newHostId: string) {
+      try {
+        if (!this.currentGame) {
+          throw new Error('No active game');
+        }
+        
+        const currentPlayerId = localStorage.getItem('playerId');
+        if (!currentPlayerId) {
+          throw new Error('No player ID found');
+        }
+        
+        await gameRepository.transferHost(this.currentGame.id, newHostId);
+        const game = await gameRepository.getGame(this.currentGame.id);
+        if (game) {
+          this.currentGame = game;
+          this.isHost = game.players.some(p => p.id === currentPlayerId && p.isHost);
+        }
+      } catch (error) {
+        console.error('Error transferring host:', error);
         throw error;
       }
     }

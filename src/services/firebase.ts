@@ -134,4 +134,24 @@ export const subscribeToGame = (
     },
     onError
   );
+};
+
+export const transferHost = async (gameId: string, newHostId: string): Promise<void> => {
+  const gameRef = doc(db, 'games', gameId);
+  const gameDoc = await getDoc(gameRef);
+  
+  if (!gameDoc.exists()) {
+    throw new Error('Game not found');
+  }
+  
+  const game = gameDoc.data() as Game;
+  const updatedPlayers = game.players.map(player => ({
+    ...player,
+    isHost: player.id === newHostId
+  }));
+  
+  await updateDoc(gameRef, { 
+    players: updatedPlayers,
+    hostId: newHostId
+  });
 }; 

@@ -1,5 +1,5 @@
 import { db } from '@/services/firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { Game, Player } from '@/types/firebase';
 
 export interface GameRepository {
@@ -10,6 +10,7 @@ export interface GameRepository {
   updatePlayerVote(gameId: string, playerId: string, vote: string | null): Promise<void>;
   revealVotes(gameId: string): Promise<void>;
   resetVotes(gameId: string): Promise<void>;
+  transferHost(gameId: string, newHostId: string): Promise<void>;
 }
 
 export const gameRepository: GameRepository = {
@@ -87,6 +88,26 @@ export const gameRepository: GameRepository = {
       players: updatedPlayers,
       status: 'waiting',
       updatedAt: new Date()
+    });
+  },
+
+  async transferHost(gameId: string, newHostId: string): Promise<void> {
+    const gameRef = doc(db, 'games', gameId);
+    const gameDoc = await getDoc(gameRef);
+    
+    if (!gameDoc.exists()) {
+      throw new Error('Game not found');
+    }
+    
+    const game = gameDoc.data() as Game;
+    const updatedPlayers = game.players.map(player => ({
+      ...player,
+      isHost: player.id === newHostId
+    }));
+    
+    await updateDoc(gameRef, { 
+      players: updatedPlayers,
+      updatedAt: Timestamp.now()
     });
   }
 }; 

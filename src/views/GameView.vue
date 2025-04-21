@@ -17,7 +17,8 @@
           :most-repeated-vote="getMostRepeatedVote(currentGame?.players || [])"
           @reveal="revealVotes"
           @next-round="nextRound"
-          @remove-player="removePlayer"
+          @remove-player="handleRemovePlayer"
+          @transfer-host="handleTransferHost"
         />
 
         <!-- Voting Area at the bottom -->
@@ -37,6 +38,15 @@
       v-model="showNameModal"
       @submit="handlePlayerNameSubmit"
     />
+
+    <!-- Confirmation Modal -->
+    <ConfirmationModal
+      v-model="showConfirmationModal"
+      :title="confirmationModalTitle"
+      :message="confirmationModalMessage"
+      confirm-button-text="Confirm"
+      @confirm="handleConfirmation"
+    />
   </div>
 </template>
 
@@ -51,6 +61,7 @@ import GameHeader from '@/components/GameHeader.vue';
 import CircularPlayerLayout from '@/components/CircularPlayerLayout.vue';
 import VotingArea from '@/components/VotingArea.vue';
 import PlayerNameModal from '@/components/PlayerNameModal.vue';
+import ConfirmationModal from '@/components/ConfirmationModal.vue';
 
 const props = defineProps<{
   id: string;
@@ -61,6 +72,11 @@ const gameStore = useGameStore();
 const toast = useToast();
 const playerId = ref<string | null>(null);
 const showNameModal = ref(false);
+const showConfirmationModal = ref(false);
+const confirmationModalTitle = ref('');
+const confirmationModalMessage = ref('');
+const confirmationModalAction = ref<'remove' | 'transfer' | null>(null);
+const pendingPlayerId = ref<string | null>(null);
 
 // Use store state directly
 const currentGame = computed(() => gameStore.currentGame);
@@ -190,14 +206,12 @@ const handleNameUpdate = async (newName: string) => {
   }
 };
 
-const removePlayer = async (playerIdToRemove: string) => {
-  try {
-    await gameStore.removePlayer(props.id, playerIdToRemove);
-    toast.success('Player removed successfully');
-  } catch (error) {
-    console.error('Error removing player:', error);
-    toast.error('Failed to remove player');
-  }
+const handleRemovePlayer = (playerIdToRemove: string) => {
+  confirmationModalTitle.value = 'Remove Player';
+  confirmationModalMessage.value = 'Are you sure you want to remove this player from the game?';
+  confirmationModalAction.value = 'remove';
+  pendingPlayerId.value = playerIdToRemove;
+  showConfirmationModal.value = true;
 };
 
 const handleRejoin = async () => {
@@ -233,6 +247,36 @@ const getMostRepeatedVote = (players: any[]) => {
   if (!entries.length) return null;
 
   return entries.reduce((a, b) => (voteCounts[a[0]] > voteCounts[b[0]] ? a : b))[0];
+};
+
+const handleTransferHost = (newHostId: string) => {
+  const newHost = currentGame.value?.players.find(p => p.id === newHostId);
+  confirmationModalTitle.value = 'Transfer Host Role';
+  confirmationModalMessage.value = `Are you sure you want to transfer the host role to ${newHost?.name || 'this player'}?`;
+  confirmationModalAction.value = 'transfer';
+  pendingPlayerId.value = newHostId;
+  showConfirmationModal.value = true;
+};
+
+const handleConfirmation = async () => {
+  if (!pendingPlayerId.value) return;
+
+  try {
+    if (confirmationModalAction.value === 'remove') {
+      await gameStore.removePlayer(props.id, pendingPlayerId.value);
+      toast.success('Player removed successfully');
+    } else if (confirmationModalAction.value === 'transfer') {
+      await gameStore.transferHost(pendingPlayerId.value);
+      toast.success('Host role transferred successfully');
+    }
+  } catch (error) {
+    console.error('Error performing action:', error);
+    toast.error('Failed to perform action');
+  } finally {
+    showConfirmationModal.value = false;
+    confirmationModalAction.value = null;
+    pendingPlayerId.value = null;
+  }
 };
 
 onUnmounted(() => {

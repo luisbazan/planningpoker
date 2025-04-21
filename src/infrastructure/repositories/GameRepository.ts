@@ -4,7 +4,6 @@ import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc, T
 import type { Game, Player } from '@/domain/models/Game';
 import { Observable } from 'rxjs';
 import { firebaseConfig } from '../../firebase.config';
-import { db } from '@/firebase';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -31,8 +30,8 @@ export class GameRepository {
       mostRepeatedVote: null,
       voteCounts: {},
       removedPlayers: [],
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
     };
     
     await setDoc(gameRef, newGame);
@@ -118,7 +117,7 @@ export class GameRepository {
     const gameRef = doc(db, 'games', gameId);
     await updateDoc(gameRef, {
       players,
-      updatedAt: new Date()
+      updatedAt: Timestamp.now()
     });
   }
 
@@ -126,7 +125,7 @@ export class GameRepository {
     const gameRef = doc(db, 'games', gameId);
     await updateDoc(gameRef, {
       ...updates,
-      updatedAt: new Date()
+      updatedAt: Timestamp.now()
     });
   }
 
@@ -165,6 +164,26 @@ export class GameRepository {
     await this.updateGameState(gameId, {
       players: updatedPlayers,
       removedPlayers: updatedRemovedPlayers
+    });
+  }
+
+  async transferHost(gameId: string, newHostId: string): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
+    const gameDoc = await getDoc(gameRef);
+    
+    if (!gameDoc.exists()) {
+      throw new Error('Game not found');
+    }
+    
+    const game = gameDoc.data() as Game;
+    const updatedPlayers = game.players.map(player => ({
+      ...player,
+      isHost: player.id === newHostId
+    }));
+    
+    await updateDoc(gameRef, { 
+      players: updatedPlayers,
+      updatedAt: Timestamp.now()
     });
   }
 

@@ -4,7 +4,7 @@
     <VoteSummary v-if="isRevealEnabled" :votes="players" />
 
     <!-- Central area -->
-    <!-- <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-24 bg-blue-100/80 rounded-3xl flex flex-col items-center justify-center animate-fade-in shadow-lg">
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-24 bg-blue-100/80 rounded-3xl flex flex-col items-center justify-center animate-fade-in shadow-lg">
       <span v-if="!isHost && !isRevealEnabled" class="text-slate-600 text-lg">
         Pick your cards!
       </span>
@@ -18,7 +18,7 @@
         class="px-6 py-2.5 text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-all duration-200 shadow-sm text-sm">
         Start new voting
       </button>
-    </div> -->
+    </div>
 
     <!-- Players in circle -->
     <template v-for="(player, index) in players" :key="player.id">
@@ -48,7 +48,7 @@
               <span v-else class="text-xl font-bold text-slate-300">
                 ?
               </span>
-              <div v-if="isHost && player.id !== currentPlayerId" class="absolute -top-1.5 -right-1.5 flex gap-1">
+              <div v-if="isHost && player.id !== currentPlayerId" class="absolute -top-1.5 -right-1.5">
                 <button
                   @click="$emit('remove-player', player.id)"
                   class="p-1 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-md transition-all duration-200 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-100"
@@ -58,6 +58,8 @@
                     <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                   </svg>
                 </button>
+              </div>
+              <div v-if="isHost && player.id !== currentPlayerId" class="absolute -bottom-1.5 -right-1.5">
                 <button
                   @click="$emit('transfer-host', player.id)"
                   class="p-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full shadow-md transition-all duration-200 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-100"
