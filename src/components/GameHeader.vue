@@ -1,19 +1,39 @@
 <template>
   <header class="bg-white shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <h2 class="text-lg font-semibold text-gray-900">Game ID: {{ gameId }}</h2>
-        <button
-          @click="copyGameId"
-          class="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md"
-        >
-          <span class="sr-only">Copy game ID</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2H6zm0-2h8a4 4 0 014 4v11a4 4 0 01-4 4H6a4 4 0 01-4-4V5a4 4 0 014-4z" />
-          </svg>
-        </button>
+      <div class="flex items-center space-x-6">
+        <!-- Game ID section -->
+        <div class="flex items-center space-x-2">
+          <h2 class="text-lg font-semibold text-gray-900">Game ID: {{ gameId }}</h2>
+          <button
+            @click="copyGameId"
+            class="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md"
+          >
+            <span class="sr-only">Copy game ID</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2H6zm0-2h8a4 4 0 014 4v11a4 4 0 01-4 4H6a4 4 0 01-4-4V5a4 4 0 014-4z" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Player name section -->
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-gray-500">Playing as:</span>
+          <span class="text-sm font-medium text-gray-900">{{ currentPlayerName }}</span>
+          <button
+            @click="editName"
+            class="p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-full"
+            title="Edit name"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      <!-- Menu button -->
       <div class="relative">
         <button
           @click="isMenuOpen = !isMenuOpen"
