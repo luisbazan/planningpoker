@@ -92,7 +92,7 @@
 
 /* Button Styles */
 .btn {
-  @apply px-6 py-3 rounded-lg transition-all duration-200 text-white;
+  @apply px-6 py-3 rounded-lg transition-all duration-200;
   background: rgba(79, 70, 229, 0.8);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -190,4 +190,4 @@
   100% {
     transform: translateX(100%);
   }
-}
+} 

@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
+  <div class="min-h-screen bg-white py-6 flex flex-col justify-center sm:py-12">
     <div class="relative py-3 sm:max-w-xl sm:mx-auto">
       <div class="relative px-4 py-10 bg-white shadow-lg sm:rounded-3xl sm:p-20">
         <div class="max-w-md mx-auto">
@@ -26,6 +26,15 @@
         </div>
       </div>
     </div>
+
+    <!-- Player Name Modal -->
+    <PlayerNameModal
+      v-model="showNameModal"
+      :title="'Game Setup'"
+      :description="'Please enter your name to create a new game.'"
+      :submit-text="'Create Game'"
+      @submit="handleHostNameSubmit"
+    />
   </div>
 </template>
 
@@ -35,30 +44,64 @@ import { useRouter } from 'vue-router';
 import { useGameStore } from '@/stores/game';
 import { useToast } from 'vue-toastification';
 import { getBrowserId } from '@/utils/browserId';
+import PlayerNameModal from '@/components/PlayerNameModal.vue';
 
 const router = useRouter();
 const gameStore = useGameStore();
 const toast = useToast();
 const isLoading = ref(false);
 const currentAction = ref<'create' | 'join' | null>(null);
+const showNameModal = ref(false);
+const pendingHostId = ref<string | null>(null);
 
 const createNewGame = async () => {
-  if (isLoading.value) return;
+  try {
+    // Check if we already have a stored player name
+    const storedPlayerId = localStorage.getItem('playerId');
+    const storedPlayerName = localStorage.getItem('playerName');
+    
+    if (storedPlayerId && storedPlayerName) {
+      // If we have both ID and name, create game directly
+      isLoading.value = true;
+      currentAction.value = 'create';
+      const newGameId = await gameStore.createGame(storedPlayerId, storedPlayerName);
+      router.push(`/game/${newGameId}`);
+    } else {
+      // If we don't have stored session, show modal
+      const hostId = await getBrowserId();
+      pendingHostId.value = hostId;
+      showNameModal.value = true;
+    }
+  } catch (error) {
+    console.error('Error in game creation:', error);
+    toast.error('Failed to initialize game creation');
+  } finally {
+    if (isLoading.value) {
+      isLoading.value = false;
+      currentAction.value = null;
+    }
+  }
+};
+
+const handleHostNameSubmit = async (name: string) => {
+  if (!pendingHostId.value) return;
   
   isLoading.value = true;
   currentAction.value = 'create';
   
   try {
-    const hostId = await getBrowserId();
-    localStorage.setItem('playerId', hostId);
-    const newGameId = await gameStore.createGame(hostId);
+    // Store both ID and name
+    localStorage.setItem('playerId', pendingHostId.value);
+    localStorage.setItem('playerName', name);
+    
+    const newGameId = await gameStore.createGame(pendingHostId.value, name);
     router.push(`/game/${newGameId}`);
   } catch (error) {
+    console.error('Error creating game:', error);
     toast.error('Failed to create game');
   } finally {
     isLoading.value = false;
     currentAction.value = null;
   }
 };
-
 </script>

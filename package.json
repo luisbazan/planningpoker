@@ -11,10 +11,13 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
   },
   "dependencies": {
+    "@headlessui/vue": "^1.7.23",
+    "@types/uuid": "^10.0.0",
     "@vueuse/core": "^10.7.2",
     "firebase": "^10.8.0",
     "pinia": "^2.1.7",
     "rxjs": "^7.8.2",
+    "uuid": "^11.1.0",
     "vue": "^3.5.13",
     "vue-router": "^4.2.5",
     "vue-toastification": "^2.0.0-rc.5"

@@ -13,33 +13,47 @@ export const useGameStore = defineStore('game', {
   }),
 
   actions: {
-    async createGame(hostId: string) {
+    async createGame(hostId: string, hostName: string): Promise<string> {
       try {
-        const game = await gameRepository.createGame(hostId);
+        const gameId = await gameRepository.createGame(hostId, hostName);
+        const game = await gameRepository.getGame(gameId);
+        if (!game) {
+          throw new Error('Failed to create game');
+        }
         this.currentGame = game;
         this.isHost = true;
-        return game.id;
+        return gameId;
       } catch (error) {
         console.error('Error creating game:', error);
         throw error;
       }
     },
 
-    async joinGame(gameId: string, player: Player) {
+    async getGame(gameId: string): Promise<Game> {
       try {
-        await gameRepository.joinGame(gameId, player);
-        this.isHost = false;
+        const game = await gameRepository.getGame(gameId);
+        if (!game) {
+          throw new Error('Game not found');
+        }
+        this.currentGame = game;
+        this.isHost = game.players.some(p => p.id === localStorage.getItem('playerId') && p.isHost);
+        return game;
       } catch (error) {
-        console.error('Error joining game:', error);
+        console.error('Error getting game:', error);
         throw error;
       }
     },
 
-    async verifyAndCreatePlayer(gameId: string, playerId: string) {
+    async verifyAndCreatePlayer(gameId: string, playerId: string, playerName?: string) {
       try {
-        await gameRepository.verifyAndCreatePlayer(gameId, playerId);
+        await gameRepository.verifyAndCreatePlayer(gameId, playerId, playerName);
+        const game = await gameRepository.getGame(gameId);
+        if (game) {
+          this.currentGame = game;
+          this.isHost = game.players.some(p => p.id === playerId && p.isHost);
+        }
       } catch (error) {
-        console.error('Error verifying/creating player:', error);
+        console.error('Error joining game:', error);
         throw error;
       }
     },
@@ -49,6 +63,15 @@ export const useGameStore = defineStore('game', {
         await gameRepository.updatePlayerVote(gameId, playerId, vote);
       } catch (error) {
         console.error('Error updating player vote:', error);
+        throw error;
+      }
+    },
+
+    async updatePlayers(gameId: string, players: Player[]) {
+      try {
+        await gameRepository.updatePlayers(gameId, players);
+      } catch (error) {
+        console.error('Error updating players:', error);
         throw error;
       }
     },
@@ -76,11 +99,31 @@ export const useGameStore = defineStore('game', {
       }
     },
 
-    async nextRound(gameId: string): Promise<void> {
+    async resetVotes(gameId: string): Promise<void> {
       try {
-        await gameRepository.nextRound(gameId);
+        await gameRepository.resetVotes(gameId);
       } catch (error) {
-        console.error('Error starting next round:', error);
+        console.error('Error resetting votes:', error);
+        throw error;
+      }
+    },
+
+    async removePlayer(gameId: string, playerId: string) {
+      try {
+        await gameRepository.removePlayer(gameId, playerId);
+        // El estado se actualizará automáticamente a través de la suscripción
+      } catch (error) {
+        console.error('Error removing player:', error);
+        throw error;
+      }
+    },
+
+    async rejoinPlayer(gameId: string, playerId: string, playerName: string) {
+      try {
+        await gameRepository.rejoinPlayer(gameId, playerId, playerName);
+        // El estado se actualizará automáticamente a través de la suscripción
+      } catch (error) {
+        console.error('Error rejoining player:', error);
         throw error;
       }
     }

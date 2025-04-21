@@ -1,37 +1,24 @@
-const DB_NAME = 'planningPokerDB';
-const STORE_NAME = 'browserId';
-const ID_KEY = 'browserId';
+import { v4 as uuidv4 } from 'uuid';
 
-export async function getBrowserId(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+const BROWSER_ID_KEY = 'planning_poker_browser_id';
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const getRequest = store.get(ID_KEY);
+export const getBrowserId = async (): Promise<string> => {
+  // First try to get from localStorage
+  const storedId = localStorage.getItem(BROWSER_ID_KEY);
+  if (storedId) {
+    return storedId;
+  }
 
-      getRequest.onerror = () => reject(getRequest.error);
-      getRequest.onsuccess = () => {
-        if (getRequest.result) {
-          resolve(getRequest.result);
-        } else {
-          const newId = crypto.randomUUID();
-          const writeTransaction = db.transaction(STORE_NAME, 'readwrite');
-          const writeStore = writeTransaction.objectStore(STORE_NAME);
-          writeStore.put(newId, ID_KEY);
-          resolve(newId);
-        }
-      };
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-  });
-} 
+  // Generate new ID
+  const newId = uuidv4();
+  
+  try {
+    // Try to store in localStorage
+    localStorage.setItem(BROWSER_ID_KEY, newId);
+    return newId;
+  } catch (error) {
+    console.error('Error storing browser ID:', error);
+    // If localStorage fails, just return the generated ID
+    return newId;
+  }
+}; 

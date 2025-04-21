@@ -1,8 +1,9 @@
+import { Timestamp } from 'firebase/firestore';
+
 export interface Player {
   id: string;
   name: string;
-  vote: number | null;
-  isReady: boolean;
+  vote: string | null;
   isHost: boolean;
 }
 
@@ -11,12 +12,12 @@ export interface Game {
   hostId: string;
   players: Player[];
   currentRound: number;
-  isRevealEnabled: boolean;
+  status: 'waiting' | 'voting' | 'revealed';
   mostRepeatedVote: number | string | null;
   voteCounts: Record<string, number>;
-  status: 'waiting' | 'active' | 'finished';
-  createdAt: Date;
-  updatedAt: Date;
+  removedPlayers: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface GameState {
