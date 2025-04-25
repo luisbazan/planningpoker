@@ -10,17 +10,31 @@
         </span>
       </div>
       <div class="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-1.5">
-        <button v-for="value in [1, 2, 3, 5, 8, 13, '?', '🍺', '💀']" :key="value"
-          @click="$emit('vote', value)"
+        <button
+          v-for="value in voteValues"
+          :key="value"
+          @click="handleVote(value)"
           class="relative group aspect-[2/3] min-h-[60px] rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm overflow-hidden"
-          :class="{ 
+          :class="{
             'bg-gradient-to-br from-blue-500 to-blue-600 ring-2 ring-blue-400 shadow-lg scale-105': String(currentVote) === String(value),
-            'bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300 hover:border-slate-400 hover:from-slate-200 hover:to-slate-300': String(currentVote) !== String(value)
-          }">
-          <span class="relative text-lg font-bold" :class="{
-            'text-white': String(currentVote) === String(value),
-            'text-slate-700': String(currentVote) !== String(value)
-          }">{{ value }}</span>
+            'bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300 hover:border-slate-400 hover:from-slate-200 hover:to-slate-300': String(currentVote) !== String(value),
+            'cursor-not-allowed': loadingVote !== null
+          }"
+          :disabled="loadingVote !== null">
+          <div class="relative flex items-center justify-center w-full h-full">
+            <template v-if="loadingVote === value">
+              <svg class="animate-spin h-5 w-5" :class="{'text-white': String(currentVote) === String(value), 'text-blue-500': String(currentVote) !== String(value)}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </template>
+            <template v-else>
+              <span class="relative text-lg font-bold" :class="{
+                'text-white': String(currentVote) === String(value),
+                'text-slate-700': String(currentVote) !== String(value)
+              }">{{ value }}</span>
+            </template>
+          </div>
           <div v-if="String(currentVote) === String(value)" class="absolute inset-0 bg-blue-400/10 animate-pulse"></div>
         </button>
       </div>
@@ -39,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
   currentVote: number | string | null;
@@ -53,14 +67,29 @@ const props = defineProps<{
   currentPlayerId: string | null;
 }>();
 
+const voteValues = [1, 2, 3, 5, 8, 13, '?', '🍺', '💀'];
+const loadingVote = ref<number | string | null>(null);
+
 const isPlayerInGame = computed(() => {
   if (!props.currentPlayerId || !props.players) return false;
   return props.players.some(player => player.id === props.currentPlayerId);
 });
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'vote', value: number | string): void;
 }>();
+
+async function handleVote(value: number | string) {
+  loadingVote.value = value;
+  try {
+    await emit('vote', value);
+  } finally {
+    // Reset loading state after a short delay to ensure the animation is visible
+    setTimeout(() => {
+      loadingVote.value = null;
+    }, 300);
+  }
+}
 </script>
 
 <style scoped>
@@ -111,5 +140,13 @@ button:hover::before {
 
 .animate-pulse {
   animation: soft-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+button:disabled {
+  opacity: 0.7;
+}
+
+button:disabled:hover {
+  transform: none;
 }
 </style> 

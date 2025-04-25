@@ -15,6 +15,8 @@
           :current-player-id="playerId"
           :is-host="isHost"
           :is-reveal-enabled="currentGame?.status === 'revealed'"
+          :previous-host-name="previousHostName"
+          :is-vote-loading="isVoteLoading"
           @reveal="revealVotes"
           @next-round="nextRound"
           @remove-player="handleRemovePlayer"
@@ -28,7 +30,7 @@
             :is-reveal-enabled="currentGame?.status === 'revealed'"
             :players="currentGame?.players || []"
             :current-player-id="playerId"
-            @vote="castVote"
+            @vote="handleVote"
           />
         </div>
       </div>
@@ -78,6 +80,7 @@ const confirmationModalTitle = ref('');
 const confirmationModalMessage = ref('');
 const confirmationModalAction = ref<'remove' | 'transfer' | null>(null);
 const pendingPlayerId = ref<string | null>(null);
+const isVoteLoading = ref(false);
 
 // Use store state directly
 const currentGame = computed(() => gameStore.currentGame);
@@ -168,14 +171,14 @@ const handlePlayerNameSubmit = async (name: string) => {
   }
 };
 
-const castVote = async (value: number | string) => {
+const handleVote = async (vote: string | number) => {
   if (!playerId.value) return;
   
+  isVoteLoading.value = true;
   try {
-    await gameStore.updatePlayerVote(props.id, playerId.value, value);
-  } catch (error) {
-    console.error('Error casting vote:', error);
-    toast.error('Failed to cast vote');
+    await gameStore.updatePlayerVote(props.id, playerId.value, vote);
+  } finally {
+    isVoteLoading.value = false;
   }
 };
 

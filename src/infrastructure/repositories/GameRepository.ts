@@ -1,6 +1,6 @@
 import { ref, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
 import type { Game, Player } from '@/domain/models/Game';
 import { Observable } from 'rxjs';
 import { firebaseConfig } from '../../firebase.config';
@@ -103,12 +103,30 @@ export class GameRepository {
   }
 
   async updatePlayerVote(gameId: string, playerId: string, vote: string | null): Promise<void> {
-    const game = await this.getGame(gameId);
-    const updatedPlayers = game.players.map(player => 
-      player.id === playerId ? { ...player, vote } : player
-    );
+    const gameRef = doc(db, 'games', gameId);
     
-    await this.updatePlayers(gameId, updatedPlayers);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const gameDoc = await transaction.get(gameRef);
+        
+        if (!gameDoc.exists()) {
+          throw new Error('Game not found');
+        }
+        
+        const game = gameDoc.data() as Game;
+        const updatedPlayers = game.players.map(player => 
+          player.id === playerId ? { ...player, vote } : player
+        );
+        
+        transaction.update(gameRef, { 
+          players: updatedPlayers,
+          updatedAt: Timestamp.now()
+        });
+      });
+    } catch (error) {
+      console.error('Error in vote transaction:', error);
+      throw new Error('Failed to update vote');
+    }
   }
 
   async updatePlayers(gameId: string, players: Player[]): Promise<void> {

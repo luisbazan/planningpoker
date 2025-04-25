@@ -6,7 +6,7 @@
         <div class="flex items-center space-x-2">
           <h2 class="text-lg font-semibold text-gray-900">Game ID: {{ gameId }}</h2>
           <button
-            @click="copyGameId"
+            @click="copyGameLink"
             class="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md"
           >
             <span class="sr-only">Copy game ID</span>

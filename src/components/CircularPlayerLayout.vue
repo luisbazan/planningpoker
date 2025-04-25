@@ -18,18 +18,26 @@
                   :class="{
                     'selected': player.id === currentPlayerId,
                     'revealed': isRevealEnabled,
-                    'has-voted': player.vote !== null && !isRevealEnabled,
-                    'bg-slate-100': !isRevealEnabled
+                    'has-voted': (player.vote !== null || (player.id === currentPlayerId && isVoteLoading)) && !isRevealEnabled,
+                    'bg-slate-100': !isRevealEnabled && !player.vote && !(player.id === currentPlayerId && isVoteLoading),
+                    'loading': player.id === currentPlayerId && isVoteLoading
                   }">
-                  <span v-if="isRevealEnabled" class="text-2xl font-bold text-white">
-                    {{ player.vote ?? '?' }}
-                  </span>
-                  <span v-else-if="player.vote !== null" class="text-xl font-bold text-emerald-500">
-                    ✓
-                  </span>
-                  <span v-else class="text-xl font-bold text-slate-300">
-                    ?
-                  </span>
+                  <template v-if="player.id === currentPlayerId && isVoteLoading">
+                    <div class="flex items-center justify-center">
+                      <div class="h-6 w-6 rounded-full border-2 border-t-transparent border-emerald-500 animate-spin"></div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <span v-if="isRevealEnabled" class="text-2xl font-bold text-white">
+                      {{ player.vote ?? '?' }}
+                    </span>
+                    <span v-else-if="player.vote !== null || (player.id === currentPlayerId && isVoteLoading)" class="text-xl font-bold text-emerald-500">
+                      ✓
+                    </span>
+                    <span v-else class="text-xl font-bold text-slate-300">
+                      ?
+                    </span>
+                  </template>
                 </div>
                 <div class="absolute -top-1 -right-1 px-2 py-0.5 text-xs font-semibold rounded-full shadow-sm"
                   :class="{
@@ -54,18 +62,26 @@
                   :class="{
                     'selected': player.id === currentPlayerId,
                     'revealed': isRevealEnabled,
-                    'has-voted': player.vote !== null && !isRevealEnabled,
-                    'bg-slate-100': !isRevealEnabled
+                    'has-voted': (player.vote !== null || (player.id === currentPlayerId && isVoteLoading)) && !isRevealEnabled,
+                    'bg-slate-100': !isRevealEnabled && !player.vote && !(player.id === currentPlayerId && isVoteLoading),
+                    'loading': player.id === currentPlayerId && isVoteLoading
                   }">
-                  <span v-if="isRevealEnabled" class="text-2xl font-bold text-white">
-                    {{ player.vote ?? '?' }}
-                  </span>
-                  <span v-else-if="player.vote !== null" class="text-xl font-bold text-emerald-500">
-                    ✓
-                  </span>
-                  <span v-else class="text-xl font-bold text-slate-300">
-                    ?
-                  </span>
+                  <template v-if="player.id === currentPlayerId && isVoteLoading">
+                    <div class="flex items-center justify-center">
+                      <div class="h-6 w-6 rounded-full border-2 border-t-transparent border-emerald-500 animate-spin"></div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <span v-if="isRevealEnabled" class="text-2xl font-bold text-white">
+                      {{ player.vote ?? '?' }}
+                    </span>
+                    <span v-else-if="player.vote !== null || (player.id === currentPlayerId && isVoteLoading)" class="text-xl font-bold text-emerald-500">
+                      ✓
+                    </span>
+                    <span v-else class="text-xl font-bold text-slate-300">
+                      ?
+                    </span>
+                  </template>
                   <div v-if="isHost && player.id !== currentPlayerId && canShowActions" 
                     class="absolute -right-2 top-0 bottom-0 flex flex-col justify-between py-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -166,6 +182,7 @@ const props = defineProps<{
   isHost: boolean;
   isRevealEnabled: boolean;
   previousHostName?: string;
+  isVoteLoading?: boolean;
 }>();
 
 const showHostTransferNotification = ref(false);
@@ -276,8 +293,23 @@ const getZIndex = (index: number) => {
 
 <style scoped>
 .player-card {
-  @apply relative w-20 h-28 rounded-lg flex flex-col items-center justify-center mb-1;
-  transition: all 0.3s ease;
+  @apply relative flex items-center justify-center w-20 h-28 rounded-lg transition-all duration-300;
+}
+
+.player-card.loading {
+  @apply bg-emerald-50;
+}
+
+.player-card.selected {
+  @apply ring-2 ring-blue-500;
+}
+
+.player-card.revealed {
+  @apply bg-gradient-to-br from-blue-500 to-blue-600 transform scale-105;
+}
+
+.player-card.has-voted {
+  @apply bg-gradient-to-br from-emerald-50 to-emerald-100 ring-2 ring-emerald-500/30;
 }
 
 .player-card:hover {
