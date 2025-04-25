@@ -127,6 +127,9 @@ onMounted(async () => {
       await gameStore.verifyAndCreatePlayer(props.id, storedPlayerId);
       subscription = gameStore.subscribeToGame(props.id);
     }
+
+    // Only add beforeunload event listener for window close
+    window.addEventListener('beforeunload', handleBeforeUnload);
   } catch (error) {
     console.error('Error joining game:', error);
     toast.error('Failed to join game');
@@ -190,11 +193,24 @@ const nextRound = async () => {
   }
 };
 
-const leaveGame = () => {
-  if (subscription) {
-    subscription.unsubscribe();
+const leaveGame = async () => {
+  try {
+    if (subscription) {
+      subscription.unsubscribe();
+    }
+    
+    // Remove player from the game only when explicitly leaving
+    if (playerId.value && currentGame.value) {
+      await gameStore.removePlayer(props.id, playerId.value);
+      localStorage.removeItem('playerName');
+    }
+    
+    router.push('/');
+  } catch (error) {
+    console.error('Error leaving game:', error);
+    toast.error('Failed to leave game properly');
+    router.push('/');
   }
-  router.push('/');
 };
 
 const handleNameUpdate = async (newName: string) => {
@@ -251,10 +267,26 @@ const handleConfirmation = async () => {
   }
 };
 
+// Add the handleBeforeUnload function
+const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
+  if (playerId.value && currentGame.value) {
+    try {
+      await gameStore.removePlayer(props.id, playerId.value);
+    } catch (error) {
+      console.error('Error removing player on window close:', error);
+    }
+  }
+  // Show a confirmation dialog (browser standard)
+  event.preventDefault();
+  event.returnValue = '';
+};
+
 onUnmounted(() => {
+  // Only cleanup subscriptions and event listeners
   if (subscription) {
     subscription.unsubscribe();
   }
+  window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>
 
