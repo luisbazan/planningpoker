@@ -92,12 +92,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
 import PlayerNameModal from './PlayerNameModal.vue';
 
 const props = defineProps<{
   gameId: string;
+  playerName: string;
 }>();
 
 const emit = defineEmits<{
@@ -108,10 +109,10 @@ const emit = defineEmits<{
 const toast = useToast();
 const isMenuOpen = ref(false);
 const showEditNameModal = ref(false);
-const currentPlayerName = ref('');
+const currentPlayerName = ref(props.playerName);
 
-onMounted(() => {
-  currentPlayerName.value = localStorage.getItem('playerName') || '';
+watch(() => props.playerName, (newName) => {
+  currentPlayerName.value = newName;
 });
 
 const copyGameId = async () => {

@@ -18,7 +18,6 @@
                   :class="{
                     'selected': player.id === currentPlayerId,
                     'revealed': isRevealEnabled,
-                    'most-voted': isRevealEnabled && player.vote === mostRepeatedVote,
                     'has-voted': player.vote !== null && !isRevealEnabled,
                     'bg-slate-100': !isRevealEnabled
                   }">
@@ -55,7 +54,6 @@
                   :class="{
                     'selected': player.id === currentPlayerId,
                     'revealed': isRevealEnabled,
-                    'most-voted': isRevealEnabled && player.vote === mostRepeatedVote,
                     'has-voted': player.vote !== null && !isRevealEnabled,
                     'bg-slate-100': !isRevealEnabled
                   }">
@@ -68,25 +66,25 @@
                   <span v-else class="text-xl font-bold text-slate-300">
                     ?
                   </span>
-                  <div v-if="isHost && player.id !== currentPlayerId" class="absolute -top-1.5 -right-1.5">
+                  <div v-if="isHost && player.id !== currentPlayerId && canShowActions" 
+                    class="absolute -right-2 top-0 bottom-0 flex flex-col justify-between py-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       @click="$emit('remove-player', player.id)"
-                      class="p-1 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-md transition-all duration-200 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-100"
+                      class="p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transform hover:scale-110 transition-all"
                       title="Remove player"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                       </svg>
                     </button>
-                  </div>
-                  <div v-if="isHost && player.id !== currentPlayerId" class="absolute -bottom-1.5 -right-1.5">
-                    <button
+
+                    <button v-if="!player.isHost"
                       @click="$emit('transfer-host', player.id)"
-                      class="p-1 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full shadow-md transition-all duration-200 opacity-0 group-hover:opacity-100 scale-0 group-hover:scale-100"
+                      class="p-1.5 bg-indigo-500 text-white rounded-full shadow-lg hover:bg-indigo-600 transform hover:scale-110 transition-all"
                       title="Make host"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.616a1 1 0 01.894-1.79l1.599.8L9 4.323V3a1 1 0 011-1z" clip-rule="evenodd" />
                       </svg>
                     </button>
                   </div>
@@ -101,9 +99,6 @@
 
     <!-- Right section - Host Actions -->
     <div class="w-1/4 flex flex-col items-center justify-center gap-4">
-      <span v-if="!isHost && !isRevealEnabled" class="text-slate-600 text-lg mb-4">
-        Pick your cards!
-      </span>
       
       <!-- Host Actions -->
       <div v-if="isHost" class="flex flex-col gap-3 w-full max-w-xs">
@@ -170,7 +165,6 @@ const props = defineProps<{
   currentPlayerId: string | null;
   isHost: boolean;
   isRevealEnabled: boolean;
-  mostRepeatedVote: number | string | null;
   previousHostName?: string;
 }>();
 
@@ -186,6 +180,11 @@ const currentPlayerName = computed(() => {
 const totalPlayers = computed(() => props.players.length);
 const votedCount = computed(() => props.players.filter(p => p.vote !== null).length);
 const allPlayersVoted = computed(() => votedCount.value === totalPlayers.value);
+
+// Computed property to determine if host actions should be shown
+const canShowActions = computed(() => {
+  return !props.isRevealEnabled;
+});
 
 onMounted(() => {
   if (props.previousHostName) {
@@ -282,11 +281,6 @@ const getZIndex = (index: number) => {
 .player-card.revealed {
   @apply bg-gradient-to-br from-blue-600 to-blue-700 ring-2 ring-blue-400/50;
   transform: scale(1.05);
-}
-
-.player-card.most-voted {
-  @apply bg-gradient-to-br from-emerald-500 to-emerald-600 ring-2 ring-emerald-400;
-  animation: pulse-winner 2s ease-in-out infinite;
 }
 
 @keyframes pulse-winner {

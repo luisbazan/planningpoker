@@ -1,14 +1,20 @@
 import { defineStore } from 'pinia';
-import type { Game, Player, GameState } from '@/domain/models/Game';
+import type { Game, Player } from '@/domain/models/Game';
 import { GameRepository } from '@/infrastructure/repositories/GameRepository';
 import { Subscription } from 'rxjs';
 
 const gameRepository = new GameRepository();
 
+interface GameStoreState {
+  currentGame: Game | null;
+  playerVotes: Map<string, string | number>;
+  isHost: boolean;
+}
+
 export const useGameStore = defineStore('game', {
-  state: (): GameState => ({
-    currentGame: null as Game | null,
-    playerVotes: new Map<string, number>(),
+  state: (): GameStoreState => ({
+    currentGame: null,
+    playerVotes: new Map<string, string | number>(),
     isHost: false
   }),
 
@@ -110,8 +116,18 @@ export const useGameStore = defineStore('game', {
 
     async removePlayer(gameId: string, playerId: string) {
       try {
-        await gameRepository.removePlayer(gameId, playerId);
-        // El estado se actualizará automáticamente a través de la suscripción
+        if (!this.currentGame) return;
+        
+        // Filter out the player to be removed
+        const updatedPlayers = this.currentGame.players.filter(p => p.id !== playerId);
+        
+        // Update the game with the new players array
+        await gameRepository.updatePlayers(gameId, updatedPlayers);
+        
+        // If the current game state is available, update it
+        if (this.currentGame) {
+          this.currentGame.players = updatedPlayers;
+        }
       } catch (error) {
         console.error('Error removing player:', error);
         throw error;

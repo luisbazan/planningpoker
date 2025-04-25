@@ -2,7 +2,8 @@
   <div class="min-h-screen bg-white py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <GameHeader 
-        :game-id="props.id" 
+        :game-id="props.id"
+        :player-name="currentPlayerName"
         @leave="leaveGame" 
         @name-updated="handleNameUpdate"
       />
@@ -14,7 +15,6 @@
           :current-player-id="playerId"
           :is-host="isHost"
           :is-reveal-enabled="currentGame?.status === 'revealed'"
-          :most-repeated-vote="getMostRepeatedVote(currentGame?.players || [])"
           @reveal="revealVotes"
           @next-round="nextRound"
           @remove-player="handleRemovePlayer"
@@ -25,9 +25,10 @@
         <div class="max-w-2xl mx-auto">
           <VotingArea
             :current-vote="currentPlayerVote"
-            :is-removed="isPlayerRemoved"
+            :is-reveal-enabled="currentGame?.status === 'revealed'"
+            :players="currentGame?.players || []"
+            :current-player-id="playerId"
             @vote="castVote"
-            @rejoin="handleRejoin"
           />
         </div>
       </div>
@@ -82,17 +83,18 @@ const pendingPlayerId = ref<string | null>(null);
 const currentGame = computed(() => gameStore.currentGame);
 const isHost = computed(() => gameStore.isHost);
 
-// Verificar si el jugador está expulsado
-const isPlayerRemoved = computed(() => {
-  if (!currentGame.value || !playerId.value) return false;
-  return currentGame.value.removedPlayers?.includes(playerId.value) || false;
-});
-
 // Get current player's vote
 const currentPlayerVote = computed(() => {
   if (!currentGame.value || !playerId.value) return null;
   const player = currentGame.value.players.find(p => p.id === playerId.value);
   return player?.vote ?? null;
+});
+
+// Add this computed property after the other computed properties
+const currentPlayerName = computed(() => {
+  if (!currentGame.value || !playerId.value) return '';
+  const player = currentGame.value.players.find(p => p.id === playerId.value);
+  return player?.name || '';
 });
 
 let subscription: Subscription | null = null;
@@ -112,12 +114,6 @@ onMounted(async () => {
     // Obtener datos del juego
     const gameData = await gameStore.getGame(props.id);
     
-    // Verificar si el jugador está expulsado
-    if (gameData.removedPlayers?.includes(storedPlayerId)) {
-      subscription = gameStore.subscribeToGame(props.id);
-      return;
-    }
-
     const playerExists = gameData.players.some(p => p.id === storedPlayerId);
 
     if (!playerExists) {
@@ -142,10 +138,21 @@ const handlePlayerNameSubmit = async (name: string) => {
   if (!playerId.value) return;
   
   try {
+    // Store the name immediately
     localStorage.setItem('playerName', name);
     
+    // Create player in the game and wait for it to complete
     await gameStore.verifyAndCreatePlayer(props.id, playerId.value, name);
+    
+    // Update UI state
+    showNameModal.value = false;
+    
+    // Subscribe to game updates after player is created
     subscription = gameStore.subscribeToGame(props.id);
+
+    // Force an immediate update of the game state
+    await gameStore.getGame(props.id);
+    
     toast.success('Successfully joined the game!');
   } catch (error) {
     console.error('Error registering player:', error);
@@ -212,41 +219,6 @@ const handleRemovePlayer = (playerIdToRemove: string) => {
   confirmationModalAction.value = 'remove';
   pendingPlayerId.value = playerIdToRemove;
   showConfirmationModal.value = true;
-};
-
-const handleRejoin = async () => {
-  if (!playerId.value) return;
-  
-  try {
-    const storedPlayerName = localStorage.getItem('playerName');
-    if (!storedPlayerName) {
-      showNameModal.value = true;
-      return;
-    }
-    
-    await gameStore.rejoinPlayer(props.id, playerId.value, storedPlayerName);
-    toast.success('Successfully rejoined the game!');
-  } catch (error) {
-    console.error('Error rejoining game:', error);
-    toast.error('Failed to rejoin game');
-  }
-};
-
-// Add this function to compute the most repeated vote
-const getMostRepeatedVote = (players: any[]) => {
-  if (!players.length) return null;
-  
-  const voteCounts = players.reduce((acc: Record<string, number>, player) => {
-    if (player.vote !== null) {
-      acc[player.vote] = (acc[player.vote] || 0) + 1;
-    }
-    return acc;
-  }, {});
-
-  const entries = Object.entries(voteCounts);
-  if (!entries.length) return null;
-
-  return entries.reduce((a, b) => (voteCounts[a[0]] > voteCounts[b[0]] ? a : b))[0];
 };
 
 const handleTransferHost = (newHostId: string) => {
