@@ -25,9 +25,9 @@
         <div class="max-w-2xl mx-auto">
           <VotingArea
             :current-vote="currentPlayerVote"
-            :is-removed="isPlayerRemoved"
-            @vote="castVote"
-            @rejoin="handleRejoin"
+            :is-reveal-enabled="currentGame?.status === 'revealed'"
+            :is-in-game="isInGame"
+            @vote="(value: string | number) => castVote(value.toString())"
           />
         </div>
       </div>
@@ -73,6 +73,7 @@ const toast = useToast();
 const playerId = ref<string | null>(null);
 const showNameModal = ref(false);
 const showConfirmationModal = ref(false);
+const showHostTransferNotification = ref(false);
 const confirmationModalTitle = ref('');
 const confirmationModalMessage = ref('');
 const confirmationModalAction = ref<'remove' | 'transfer' | null>(null);
@@ -85,7 +86,7 @@ const isHost = computed(() => gameStore.isHost);
 // Verificar si el jugador está expulsado
 const isPlayerRemoved = computed(() => {
   if (!currentGame.value || !playerId.value) return false;
-  return currentGame.value.removedPlayers?.includes(playerId.value) || false;
+  return !currentGame.value.players.some(p => p.id === playerId.value);
 });
 
 // Get current player's vote
@@ -95,10 +96,49 @@ const currentPlayerVote = computed(() => {
   return player?.vote ?? null;
 });
 
+// Check if player is in game
+const isInGame = computed(() => {
+  if (!currentGame.value || !playerId.value) return false;
+  return currentGame.value.players.some(p => p.id === playerId.value);
+});
+
 let subscription: Subscription | null = null;
+
+// Handler for window beforeunload
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!playerId.value || !props.id) return;
+  
+  // For beforeunload we need to use synchronous code
+  // and handle the async removal in a separate function
+  if (currentGame.value?.status !== 'revealed') {
+    // Set a flag in localStorage to indicate we need to remove the player
+    localStorage.setItem('pendingRemoval', JSON.stringify({
+      gameId: props.id,
+      playerId: playerId.value
+    }));
+  }
+};
+
+// Function to handle pending removals
+const handlePendingRemovals = async () => {
+  const pendingRemoval = localStorage.getItem('pendingRemoval');
+  if (pendingRemoval) {
+    try {
+      const { gameId, playerId } = JSON.parse(pendingRemoval);
+      await gameStore.removePlayer(gameId, playerId);
+    } catch (error) {
+      console.error('Error handling pending removal:', error);
+    } finally {
+      localStorage.removeItem('pendingRemoval');
+    }
+  }
+};
 
 onMounted(async () => {
   try {
+    // Check for any pending removals from previous session
+    await handlePendingRemovals();
+
     let storedPlayerId = localStorage.getItem('playerId');
     let storedPlayerName = localStorage.getItem('playerName');
     
@@ -112,25 +152,34 @@ onMounted(async () => {
     // Obtener datos del juego
     const gameData = await gameStore.getGame(props.id);
     
-    // Verificar si el jugador está expulsado
-    if (gameData.removedPlayers?.includes(storedPlayerId)) {
-      subscription = gameStore.subscribeToGame(props.id);
-      return;
+    if (!gameData) {
+      throw new Error('Game not found');
     }
 
-    const playerExists = gameData.players.some(p => p.id === storedPlayerId);
-
-    if (!playerExists) {
-      if (storedPlayerName) {
-        await gameStore.verifyAndCreatePlayer(props.id, storedPlayerId, storedPlayerName);
-        subscription = gameStore.subscribeToGame(props.id);
+    // Verificar si el jugador era el host antes de refrescar
+    const wasHost = gameData.hostId === storedPlayerId;
+    
+    // Forzar reconexión al juego
+    if (wasHost) {
+      // Si era host, reconectar como host
+      await gameStore.reconnectPlayer(props.id, storedPlayerId);
+    } else {
+      // Si no era host, reconectar como jugador normal
+      const playerExists = gameData.players.some(p => p.id === storedPlayerId);
+      if (playerExists) {
+        await gameStore.reconnectPlayer(props.id, storedPlayerId);
+      } else if (storedPlayerName) {
+        await gameStore.addPlayer(props.id, storedPlayerId, storedPlayerName);
       } else {
         showNameModal.value = true;
       }
-    } else {
-      await gameStore.verifyAndCreatePlayer(props.id, storedPlayerId);
-      subscription = gameStore.subscribeToGame(props.id);
     }
+
+    // Iniciar la suscripción al juego después de la reconexión
+    subscription = gameStore.subscribeToGame(props.id);
+
+    // Add window unload handler
+    window.addEventListener('beforeunload', handleBeforeUnload);
   } catch (error) {
     console.error('Error joining game:', error);
     toast.error('Failed to join game');
@@ -142,9 +191,25 @@ const handlePlayerNameSubmit = async (name: string) => {
   if (!playerId.value) return;
   
   try {
+    // Store the name immediately
     localStorage.setItem('playerName', name);
     
-    await gameStore.verifyAndCreatePlayer(props.id, playerId.value, name);
+    // Create player in the game
+    await gameStore.addPlayer(props.id, playerId.value, name);
+    
+    // Update UI state
+    showNameModal.value = false;
+    
+    // Force a re-render of the GameHeader by triggering a state change
+    const event = new StorageEvent('storage', {
+      key: 'playerName',
+      newValue: name,
+      oldValue: null,
+      storageArea: localStorage
+    });
+    window.dispatchEvent(event);
+    
+    // Subscribe to game updates
     subscription = gameStore.subscribeToGame(props.id);
     toast.success('Successfully joined the game!');
   } catch (error) {
@@ -154,11 +219,10 @@ const handlePlayerNameSubmit = async (name: string) => {
   }
 };
 
-const castVote = async (value: number | string) => {
-  if (!playerId.value) return;
-  
+const castVote = async (vote: string) => {
+  if (!playerId.value || !props.id) return;
   try {
-    await gameStore.updatePlayerVote(props.id, playerId.value, value);
+    await gameStore.submitVote(props.id, playerId.value, vote);
   } catch (error) {
     console.error('Error casting vote:', error);
     toast.error('Failed to cast vote');
@@ -175,60 +239,52 @@ const revealVotes = async () => {
 };
 
 const nextRound = async () => {
+  if (!props.id) return;
   try {
-    await gameStore.resetVotes(props.id);
+    await gameStore.startNewRound(props.id);
   } catch (error) {
-    console.error('Error resetting votes:', error);
-    toast.error('Failed to reset votes');
+    console.error('Error starting new round:', error);
+    toast.error('Failed to start new round');
   }
 };
 
-const leaveGame = () => {
-  if (subscription) {
-    subscription.unsubscribe();
+const leaveGame = async () => {
+  if (!playerId.value || !props.id) return;
+  try {
+    await gameStore.removePlayer(props.id, playerId.value);
+    router.push('/');
+  } catch (error) {
+    console.error('Error leaving game:', error);
+    toast.error('Failed to leave game');
   }
-  router.push('/');
 };
 
 const handleNameUpdate = async (newName: string) => {
-  if (!playerId.value || !currentGame.value) return;
+  if (!currentGame.value || !playerId.value || !props.id) return;
   
   try {
-    const updatedPlayers = currentGame.value.players.map(player => 
-      player.id === playerId.value ? { ...player, name: newName } : player
-    );
+    const updatedPlayers = currentGame.value.players.map(player => {
+      if (player.id === playerId.value) {
+        return { ...player, name: newName };
+      }
+      return player;
+    });
     
-    await gameStore.updatePlayers(props.id, updatedPlayers);
-    toast.success('Name updated successfully!');
+    await gameStore.updateGame(props.id, { players: updatedPlayers });
+    localStorage.setItem('playerName', newName);
   } catch (error) {
-    console.error('Error updating name:', error);
+    console.error('Error updating player name:', error);
     toast.error('Failed to update name');
   }
 };
 
-const handleRemovePlayer = (playerIdToRemove: string) => {
-  confirmationModalTitle.value = 'Remove Player';
-  confirmationModalMessage.value = 'Are you sure you want to remove this player from the game?';
-  confirmationModalAction.value = 'remove';
-  pendingPlayerId.value = playerIdToRemove;
-  showConfirmationModal.value = true;
-};
-
-const handleRejoin = async () => {
-  if (!playerId.value) return;
-  
+const handleRemovePlayer = async (playerIdToRemove: string) => {
+  if (!props.id) return;
   try {
-    const storedPlayerName = localStorage.getItem('playerName');
-    if (!storedPlayerName) {
-      showNameModal.value = true;
-      return;
-    }
-    
-    await gameStore.rejoinPlayer(props.id, playerId.value, storedPlayerName);
-    toast.success('Successfully rejoined the game!');
+    await gameStore.removePlayer(props.id, playerIdToRemove);
   } catch (error) {
-    console.error('Error rejoining game:', error);
-    toast.error('Failed to rejoin game');
+    console.error('Error removing player:', error);
+    toast.error('Failed to remove player');
   }
 };
 
@@ -266,7 +322,7 @@ const handleConfirmation = async () => {
       await gameStore.removePlayer(props.id, pendingPlayerId.value);
       toast.success('Player removed successfully');
     } else if (confirmationModalAction.value === 'transfer') {
-      await gameStore.transferHost(pendingPlayerId.value);
+      await gameStore.transferHost(props.id, pendingPlayerId.value);
       toast.success('Host role transferred successfully');
     }
   } catch (error) {
@@ -283,6 +339,8 @@ onUnmounted(() => {
   if (subscription) {
     subscription.unsubscribe();
   }
+  // Remove window unload handler
+  window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>
 

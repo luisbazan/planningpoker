@@ -5,17 +5,19 @@ export interface Player {
   name: string;
   vote: string | null;
   isHost: boolean;
+  isRemoved: boolean;
+  joinedAt: any; // Using 'any' temporarily for Firestore Timestamp
 }
 
 export interface Game {
   id: string;
   hostId: string;
-  players: Player[];
-  currentRound: number;
   status: 'waiting' | 'voting' | 'revealed';
-  mostRepeatedVote: number | string | null;
+  players: Player[];
+  removedPlayers: Player[];
+  currentRound: number;
+  mostRepeatedVote: string | null;
   voteCounts: Record<string, number>;
-  removedPlayers: string[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

@@ -20,13 +20,22 @@
         <div v-for="[vote, count] in sortedVoteSummary" 
           :key="vote" 
           class="transform transition-all duration-300 hover:translate-x-2"
+          :class="{
+            'winning-vote': isWinningVote(vote, count)
+          }"
         >
           <div class="flex items-center justify-between mb-1">
-            <span class="text-slate-700 font-medium">{{ vote }}</span>
-            <span class="text-slate-500 text-sm">{{ count }} {{ count === 1 ? 'vote' : 'votes' }}</span>
+            <span class="text-slate-700 font-medium" :class="{ 'text-lg': isWinningVote(vote, count) }">{{ vote }}</span>
+            <span class="text-slate-500 text-sm" :class="{ 'text-emerald-600 font-semibold': isWinningVote(vote, count) }">
+              {{ count }} {{ count === 1 ? 'vote' : 'votes' }}
+            </span>
           </div>
           <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+            <div class="h-full rounded-full transition-all duration-500"
+              :class="{
+                'bg-gradient-to-r from-emerald-500 to-emerald-600 winning-bar': isWinningVote(vote, count),
+                'bg-gradient-to-r from-blue-500 to-indigo-500': !isWinningVote(vote, count)
+              }"
               :style="{ width: `${(count / totalVotes) * 100}%` }"
             ></div>
           </div>
@@ -86,6 +95,11 @@ const sortedVoteSummary = computed(() => {
 const totalVotes = computed(() => {
   return props.votes.filter(v => v.vote !== null).length;
 });
+
+const isWinningVote = (vote: string, count: number) => {
+  const maxCount = Math.max(...Object.values(voteSummary.value));
+  return count === maxCount && count > 1; // Solo considera ganador si hay más de un voto
+};
 </script>
 
 <style scoped>
@@ -102,6 +116,41 @@ const totalVotes = computed(() => {
 
 .animate-slide-in {
   animation: slide-in 0.5s ease-out forwards;
+}
+
+.winning-vote {
+  @apply relative;
+  animation: slide-in-bounce 0.6s ease-out;
+}
+
+.winning-bar {
+  animation: expand-bar 1s ease-out;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+}
+
+@keyframes slide-in-bounce {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes expand-bar {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
 }
 
 /* Efecto de brillo en hover para las barras */

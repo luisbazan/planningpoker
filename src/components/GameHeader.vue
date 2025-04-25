@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
 import PlayerNameModal from './PlayerNameModal.vue';
 
@@ -110,8 +110,24 @@ const isMenuOpen = ref(false);
 const showEditNameModal = ref(false);
 const currentPlayerName = ref('');
 
+// Function to update player name
+const updatePlayerName = () => {
+  const storedName = localStorage.getItem('playerName');
+  if (storedName) {
+    currentPlayerName.value = storedName;
+  }
+};
+
+// Update player name when mounted
 onMounted(() => {
-  currentPlayerName.value = localStorage.getItem('playerName') || '';
+  updatePlayerName();
+});
+
+// Watch for changes in localStorage
+window.addEventListener('storage', (e) => {
+  if (e.key === 'playerName') {
+    updatePlayerName();
+  }
 });
 
 const copyGameId = async () => {
@@ -145,5 +161,14 @@ const handleNameEdit = (newName: string) => {
   localStorage.setItem('playerName', newName);
   currentPlayerName.value = newName;
   emit('nameUpdated', newName);
+  
+  // Force update in other components
+  const event = new StorageEvent('storage', {
+    key: 'playerName',
+    newValue: newName,
+    oldValue: currentPlayerName.value,
+    storageArea: localStorage
+  });
+  window.dispatchEvent(event);
 };
 </script> 

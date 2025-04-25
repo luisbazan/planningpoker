@@ -1,219 +1,208 @@
 import { ref, onUnmounted } from 'vue';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc, Timestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import type { Game, Player } from '@/domain/models/Game';
 import { Observable } from 'rxjs';
 import { firebaseConfig } from '../../firebase.config';
+import { db } from '../../firebase';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const dbFirestore = getFirestore(app);
 
 export class GameRepository {
-  private gamesCollection = collection(db, 'games');
+  private gamesCollection = collection(dbFirestore, 'games');
 
-  async createGame(hostId: string, hostName: string): Promise<string> {
-    const gameId = Math.random().toString(36).substring(2, 9);
-    const gameRef = doc(db, 'games', gameId);
-    
+  async createGame(gameId: string, hostId: string, hostName: string): Promise<void> {
+    const now = Timestamp.now();
     const newGame: Game = {
       id: gameId,
-      hostId,
+      hostId: hostId,
+      status: 'waiting',
       players: [{
         id: hostId,
         name: hostName,
+        isHost: true,
         vote: null,
-        isHost: true
+        isRemoved: false,
+        joinedAt: now
       }],
+      removedPlayers: [],
       currentRound: 1,
-      status: 'waiting',
       mostRepeatedVote: null,
       voteCounts: {},
-      removedPlayers: [],
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now()
+      createdAt: now,
+      updatedAt: now
     };
-    
-    await setDoc(gameRef, newGame);
-    return gameId;
+
+    await setDoc(doc(this.gamesCollection, gameId), newGame);
   }
 
-  async getGame(gameId: string): Promise<Game> {
-    const gameRef = doc(db, 'games', gameId);
-    const gameDoc = await getDoc(gameRef);
-    
-    if (!gameDoc.exists()) {
-      throw new Error('Game not found');
-    }
-    
-    return gameDoc.data() as Game;
+  async getGame(gameId: string): Promise<Game | null> {
+    const gameDoc = await getDoc(doc(this.gamesCollection, gameId));
+    return gameDoc.exists() ? gameDoc.data() as Game : null;
   }
 
-  async joinGame(gameId: string, player: Player): Promise<void> {
+  async addPlayer(gameId: string, playerId: string, playerName: string): Promise<void> {
     const gameRef = doc(this.gamesCollection, gameId);
-    const gameDoc = await getDoc(gameRef);
-
-    if (!gameDoc.exists()) {
+    const game = await this.getGame(gameId);
+    
+    if (!game) {
       throw new Error('Game not found');
     }
 
-    const gameData = gameDoc.data() as Game;
-    const existingPlayer = gameData.players.find(p => p.id === player.id);
+    const newPlayer: Player = {
+      id: playerId,
+      name: playerName,
+      isHost: false,
+      vote: null,
+      isRemoved: false,
+      joinedAt: Timestamp.now()
+    };
 
-    if (existingPlayer) {
-      // If player exists, update their name
-      const updatedPlayers = gameData.players.map(p => 
-        p.id === player.id ? { ...p, name: player.name } : p
-      );
-
-      await updateDoc(gameRef, {
-        players: updatedPlayers,
-        updatedAt: Timestamp.now()
-      });
-    } else {
-      // If player doesn't exist, add them to the game
-      await updateDoc(gameRef, {
-        players: [...gameData.players, player],
-        updatedAt: Timestamp.now()
-      });
-    }
+    await updateDoc(gameRef, {
+      players: arrayUnion(newPlayer),
+      updatedAt: Timestamp.now()
+    });
   }
 
-  async verifyAndCreatePlayer(gameId: string, playerId: string, playerName?: string): Promise<void> {
+  async reconnectPlayer(gameId: string, playerId: string): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
     const game = await this.getGame(gameId);
-    
-    // Si el jugador está en la lista de removedPlayers, no permitir el ingreso
-    if (game.removedPlayers?.includes(playerId)) {
-      throw new Error('Player has been removed from the game');
+
+    if (!game) {
+      throw new Error('Game not found');
     }
 
-    const existingPlayer = game.players.find(p => p.id === playerId);
-    
-    if (!existingPlayer && !playerName) {
-      throw new Error('Player name is required for new players');
+    const players = [...game.players];
+    const playerIndex = players.findIndex(p => p.id === playerId);
+
+    if (playerIndex === -1) {
+      throw new Error('Player not found');
     }
 
-    if (!existingPlayer && playerName) {
-      const updatedPlayers = [...game.players, {
-        id: playerId,
-        name: playerName,
-        vote: null,
-        isHost: false
-      }];
-      await this.updatePlayers(gameId, updatedPlayers);
-    }
-  }
+    players[playerIndex] = {
+      ...players[playerIndex],
+      isRemoved: false
+    };
 
-  async updatePlayerVote(gameId: string, playerId: string, vote: string | null): Promise<void> {
-    const game = await this.getGame(gameId);
-    const updatedPlayers = game.players.map(player => 
-      player.id === playerId ? { ...player, vote } : player
-    );
-    
-    await this.updatePlayers(gameId, updatedPlayers);
-  }
-
-  async updatePlayers(gameId: string, players: Player[]): Promise<void> {
-    const gameRef = doc(db, 'games', gameId);
     await updateDoc(gameRef, {
       players,
       updatedAt: Timestamp.now()
     });
   }
 
-  async updateGameState(gameId: string, updates: Partial<Game>): Promise<void> {
-    const gameRef = doc(db, 'games', gameId);
+  async removePlayer(gameId: string, playerId: string): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
+    const game = await this.getGame(gameId);
+
+    if (!game) {
+      throw new Error('Game not found');
+    }
+
+    const players = [...game.players];
+    const playerIndex = players.findIndex(p => p.id === playerId);
+
+    if (playerIndex === -1) {
+      throw new Error('Player not found');
+    }
+
+    players[playerIndex] = {
+      ...players[playerIndex],
+      isRemoved: true,
+      vote: null
+    };
+
+    await updateDoc(gameRef, {
+      players,
+      updatedAt: Timestamp.now()
+    });
+  }
+
+  async transferHost(gameId: string, newHostId: string): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
+    const game = await this.getGame(gameId);
+
+    if (!game) {
+      throw new Error('Game not found');
+    }
+
+    const players = game.players.map(player => ({
+      ...player,
+      isHost: player.id === newHostId
+    }));
+
+    await updateDoc(gameRef, {
+      players,
+      updatedAt: Timestamp.now()
+    });
+  }
+
+  async submitVote(gameId: string, playerId: string, vote: string): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
+    const game = await this.getGame(gameId);
+
+    if (!game) {
+      throw new Error('Game not found');
+    }
+
+    const players = game.players.map(player => 
+      player.id === playerId ? { ...player, vote } : player
+    );
+
+    await updateDoc(gameRef, {
+      players,
+      updatedAt: Timestamp.now()
+    });
+  }
+
+  async revealVotes(gameId: string): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
+    await updateDoc(gameRef, {
+      status: 'revealed',
+      updatedAt: Timestamp.now()
+    });
+  }
+
+  async startNewRound(gameId: string): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
+    const game = await this.getGame(gameId);
+
+    if (!game) {
+      throw new Error('Game not found');
+    }
+
+    const players = game.players.map(player => ({
+      ...player,
+      vote: null
+    }));
+
+    await updateDoc(gameRef, {
+      players,
+      status: 'waiting',
+      currentRound: game.currentRound + 1,
+      mostRepeatedVote: null,
+      voteCounts: {},
+      updatedAt: Timestamp.now()
+    });
+  }
+
+  async updateGame(gameId: string, updates: Partial<Game>): Promise<void> {
+    const gameRef = doc(this.gamesCollection, gameId);
     await updateDoc(gameRef, {
       ...updates,
       updatedAt: Timestamp.now()
     });
   }
 
-  async removePlayer(gameId: string, playerId: string): Promise<void> {
-    const game = await this.getGame(gameId);
-    const updatedPlayers = game.players.filter(p => p.id !== playerId);
-    const removedPlayers = [...(game.removedPlayers || [])];
-    
-    if (!removedPlayers.includes(playerId)) {
-      removedPlayers.push(playerId);
-    }
-
-    await this.updateGameState(gameId, {
-      players: updatedPlayers,
-      removedPlayers
-    });
-  }
-
-  async rejoinPlayer(gameId: string, playerId: string, playerName: string): Promise<void> {
-    const game = await this.getGame(gameId);
-    
-    if (!game.removedPlayers?.includes(playerId)) {
-      throw new Error('Player is not in removed list');
-    }
-
-    const newPlayer = {
-      id: playerId,
-      name: playerName,
-      vote: null,
-      isHost: false
-    };
-
-    const updatedPlayers = [...game.players, newPlayer];
-    const updatedRemovedPlayers = game.removedPlayers.filter(id => id !== playerId);
-
-    await this.updateGameState(gameId, {
-      players: updatedPlayers,
-      removedPlayers: updatedRemovedPlayers
-    });
-  }
-
-  async transferHost(gameId: string, newHostId: string): Promise<void> {
-    const gameRef = doc(this.gamesCollection, gameId);
-    const gameDoc = await getDoc(gameRef);
-    
-    if (!gameDoc.exists()) {
-      throw new Error('Game not found');
-    }
-    
-    const game = gameDoc.data() as Game;
-    const updatedPlayers = game.players.map(player => ({
-      ...player,
-      isHost: player.id === newHostId
-    }));
-    
-    await updateDoc(gameRef, { 
-      players: updatedPlayers,
-      updatedAt: Timestamp.now()
-    });
-  }
-
   subscribeToGame(gameId: string): Observable<Game> {
     return new Observable(subscriber => {
-      const gameRef = doc(db, 'games', gameId);
+      const gameRef = doc(this.gamesCollection, gameId);
       return onSnapshot(gameRef, (doc) => {
         if (doc.exists()) {
           subscriber.next(doc.data() as Game);
         }
-      }, (error) => {
-        subscriber.error(error);
       });
-    });
-  }
-
-  async revealVotes(gameId: string): Promise<void> {
-    await this.updateGameState(gameId, { status: 'revealed' });
-  }
-
-  async resetVotes(gameId: string): Promise<void> {
-    const game = await this.getGame(gameId);
-    const updatedPlayers = game.players.map(player => ({
-      ...player,
-      vote: null
-    }));
-
-    await this.updateGameState(gameId, {
-      players: updatedPlayers,
-      status: 'waiting'
     });
   }
 }

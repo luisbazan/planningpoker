@@ -2,9 +2,9 @@ import { Timestamp } from 'firebase/firestore';
 
 export interface Game {
   id: string;
+  hostId: string;
   players: Player[];
   status: 'waiting' | 'revealed';
-  removedPlayers: string[]; // IDs de jugadores expulsados
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
