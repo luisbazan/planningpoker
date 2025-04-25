@@ -2,7 +2,7 @@
   <div class="flex w-full min-h-[600px] gap-8 p-8">
     <!-- Left section - Vote Summary -->
     <div class="w-1/4">
-      <VoteSummary v-if="isRevealEnabled" :votes="players" />
+      <VoteSummary v-if="isRevealEnabled" :votes="playerVotes" />
     </div>
 
     <!-- Center section - Players Grid -->
@@ -184,6 +184,22 @@ const allPlayersVoted = computed(() => votedCount.value === totalPlayers.value);
 // Computed property to determine if host actions should be shown
 const canShowActions = computed(() => {
   return !props.isRevealEnabled;
+});
+
+// Add computed property for votes
+const playerVotes = computed(() => {
+  console.log('Original players:', props.players);
+  const votes = props.players.map(player => {
+    // Convert numeric string votes to numbers
+    let vote = player.vote;
+    if (typeof vote === 'string' && !isNaN(Number(vote))) {
+      vote = Number(vote);
+    }
+    console.log('Processing player vote:', player.vote, '→', vote);
+    return { vote };
+  });
+  console.log('Processed votes:', votes);
+  return votes;
 });
 
 onMounted(() => {

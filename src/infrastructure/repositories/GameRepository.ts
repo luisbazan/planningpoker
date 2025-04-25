@@ -25,11 +25,7 @@ export class GameRepository {
         vote: null,
         isHost: true
       }],
-      currentRound: 1,
       status: 'waiting',
-      mostRepeatedVote: null,
-      voteCounts: {},
-      removedPlayers: [],
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     };
@@ -79,14 +75,8 @@ export class GameRepository {
     }
   }
 
-  async verifyAndCreatePlayer(gameId: string, playerId: string, playerName?: string): Promise<void> {
+  async verifyAndCreatePlayer(gameId: string, playerId: string, playerName?: string, isHost: boolean = false): Promise<void> {
     const game = await this.getGame(gameId);
-    
-    // Si el jugador está en la lista de removedPlayers, no permitir el ingreso
-    if (game.removedPlayers?.includes(playerId)) {
-      throw new Error('Player has been removed from the game');
-    }
-
     const existingPlayer = game.players.find(p => p.id === playerId);
     
     if (!existingPlayer && !playerName) {
@@ -98,8 +88,16 @@ export class GameRepository {
         id: playerId,
         name: playerName,
         vote: null,
-        isHost: false
+        isHost
       }];
+      await this.updatePlayers(gameId, updatedPlayers);
+    } else if (existingPlayer) {
+      // Update existing player's name and host status if needed
+      const updatedPlayers = game.players.map(p => 
+        p.id === playerId 
+          ? { ...p, name: playerName || p.name, isHost: isHost || p.isHost }
+          : p
+      );
       await this.updatePlayers(gameId, updatedPlayers);
     }
   }
@@ -132,38 +130,9 @@ export class GameRepository {
   async removePlayer(gameId: string, playerId: string): Promise<void> {
     const game = await this.getGame(gameId);
     const updatedPlayers = game.players.filter(p => p.id !== playerId);
-    const removedPlayers = [...(game.removedPlayers || [])];
     
-    if (!removedPlayers.includes(playerId)) {
-      removedPlayers.push(playerId);
-    }
-
     await this.updateGameState(gameId, {
-      players: updatedPlayers,
-      removedPlayers
-    });
-  }
-
-  async rejoinPlayer(gameId: string, playerId: string, playerName: string): Promise<void> {
-    const game = await this.getGame(gameId);
-    
-    if (!game.removedPlayers?.includes(playerId)) {
-      throw new Error('Player is not in removed list');
-    }
-
-    const newPlayer = {
-      id: playerId,
-      name: playerName,
-      vote: null,
-      isHost: false
-    };
-
-    const updatedPlayers = [...game.players, newPlayer];
-    const updatedRemovedPlayers = game.removedPlayers.filter(id => id !== playerId);
-
-    await this.updateGameState(gameId, {
-      players: updatedPlayers,
-      removedPlayers: updatedRemovedPlayers
+      players: updatedPlayers
     });
   }
 

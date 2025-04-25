@@ -114,17 +114,21 @@ onMounted(async () => {
     // Obtener datos del juego
     const gameData = await gameStore.getGame(props.id);
     
-    const playerExists = gameData.players.some(p => p.id === storedPlayerId);
+    const existingPlayer = gameData.players.find(p => p.id === storedPlayerId);
+    const wasHost = existingPlayer?.isHost || false;
 
-    if (!playerExists) {
+    if (!existingPlayer) {
       if (storedPlayerName) {
-        await gameStore.verifyAndCreatePlayer(props.id, storedPlayerId, storedPlayerName);
+        // Si no hay jugadores, el primero en unirse será el host
+        const shouldBeHost = gameData.players.length === 0;
+        await gameStore.verifyAndCreatePlayer(props.id, storedPlayerId, storedPlayerName, shouldBeHost);
         subscription = gameStore.subscribeToGame(props.id);
       } else {
         showNameModal.value = true;
       }
     } else {
-      await gameStore.verifyAndCreatePlayer(props.id, storedPlayerId);
+      // Mantener el estado de host al reconectarse
+      await gameStore.verifyAndCreatePlayer(props.id, storedPlayerId, existingPlayer.name, wasHost);
       subscription = gameStore.subscribeToGame(props.id);
     }
 
@@ -195,12 +199,13 @@ const nextRound = async () => {
 
 const leaveGame = async () => {
   try {
-    if (subscription) {
-      subscription.unsubscribe();
-    }
+    // Always clean up subscription first
+    cleanupSubscription();
     
-    // Remove player from the game only when explicitly leaving
-    if (playerId.value && currentGame.value) {
+    // Then handle player removal if needed
+    if (playerId.value && currentGame.value && 
+        currentGame.value.status !== 'revealed' && 
+        !currentGame.value.players.find(p => p.id === playerId.value && p.isHost)) {
       await gameStore.removePlayer(props.id, playerId.value);
       localStorage.removeItem('playerName');
     }
@@ -269,23 +274,39 @@ const handleConfirmation = async () => {
 
 // Add the handleBeforeUnload function
 const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
-  if (playerId.value && currentGame.value) {
+  // Clean up subscription on page unload
+  cleanupSubscription();
+
+  // Don't remove player if votes are revealed or if the player is the host
+  if (playerId.value && currentGame.value && 
+      currentGame.value.status !== 'revealed' && 
+      !currentGame.value.players.find(p => p.id === playerId.value && p.isHost)) {
     try {
       await gameStore.removePlayer(props.id, playerId.value);
     } catch (error) {
       console.error('Error removing player on window close:', error);
     }
   }
-  // Show a confirmation dialog (browser standard)
-  event.preventDefault();
-  event.returnValue = '';
+
+  // Only show warning dialog if player has voted in current round
+  const hasVoted = currentGame.value?.players.find(p => p.id === playerId.value)?.vote !== null;
+  if (hasVoted && currentGame.value?.status !== 'revealed') {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+};
+
+// Helper function to clean up subscription
+const cleanupSubscription = () => {
+  if (subscription) {
+    subscription.unsubscribe();
+    subscription = null;
+  }
 };
 
 onUnmounted(() => {
-  // Only cleanup subscriptions and event listeners
-  if (subscription) {
-    subscription.unsubscribe();
-  }
+  // Clean up subscription and event listeners
+  cleanupSubscription();
   window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>

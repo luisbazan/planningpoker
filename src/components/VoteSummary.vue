@@ -75,14 +75,36 @@ const props = defineProps<{
 }>();
 
 const average = computed(() => {
+  console.log('Raw votes:', props.votes);
+  
   const numericVotes = props.votes
-    .map(p => p.vote)
-    .filter((vote): vote is number => typeof vote === 'number');
+    .map(p => {
+      console.log('Processing vote:', p.vote, 'type:', typeof p.vote);
+      // Convert string numbers to actual numbers
+      if (typeof p.vote === 'string' && !isNaN(Number(p.vote))) {
+        return Number(p.vote);
+      }
+      return p.vote;
+    })
+    .filter((vote): vote is number => {
+      const isValidNumber = vote !== null && 
+        !isNaN(Number(vote)) && 
+        vote !== '?' && 
+        vote !== '🍺' && 
+        vote !== '💀';
+      console.log('Vote:', vote, 'isValid:', isValidNumber);
+      return isValidNumber;
+    });
+  
+  console.log('Numeric votes:', numericVotes);
   
   if (numericVotes.length === 0) return null;
   
   const sum = numericVotes.reduce((a, b) => a + b, 0);
-  return (sum / numericVotes.length).toFixed(1);
+  const avg = sum / numericVotes.length;
+  console.log('Sum:', sum, 'Length:', numericVotes.length, 'Avg:', avg);
+  
+  return Number.isInteger(avg) ? avg.toString() : avg.toFixed(1);
 });
 
 const voteSummary = computed(() => {

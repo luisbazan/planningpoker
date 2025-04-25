@@ -50,23 +50,23 @@ export const useGameStore = defineStore('game', {
       }
     },
 
-    async verifyAndCreatePlayer(gameId: string, playerId: string, playerName?: string) {
+    async verifyAndCreatePlayer(gameId: string, playerId: string, playerName?: string, isHost?: boolean): Promise<void> {
       try {
-        await gameRepository.verifyAndCreatePlayer(gameId, playerId, playerName);
-        const game = await gameRepository.getGame(gameId);
-        if (game) {
-          this.currentGame = game;
-          this.isHost = game.players.some(p => p.id === playerId && p.isHost);
-        }
+        await gameRepository.verifyAndCreatePlayer(gameId, playerId, playerName, isHost);
+        
+        // Actualizar el estado local
+        this.currentGame = await gameRepository.getGame(gameId);
+        this.isHost = this.currentGame.players.find(p => p.id === playerId)?.isHost || false;
       } catch (error) {
-        console.error('Error joining game:', error);
+        console.error('Error verifying/creating player:', error);
         throw error;
       }
     },
 
     async updatePlayerVote(gameId: string, playerId: string, vote: number | string | null) {
       try {
-        await gameRepository.updatePlayerVote(gameId, playerId, vote);
+        const voteAsString = vote === null ? null : vote.toString();
+        await gameRepository.updatePlayerVote(gameId, playerId, voteAsString);
       } catch (error) {
         console.error('Error updating player vote:', error);
         throw error;
@@ -130,16 +130,6 @@ export const useGameStore = defineStore('game', {
         }
       } catch (error) {
         console.error('Error removing player:', error);
-        throw error;
-      }
-    },
-
-    async rejoinPlayer(gameId: string, playerId: string, playerName: string) {
-      try {
-        await gameRepository.rejoinPlayer(gameId, playerId, playerName);
-        // El estado se actualizará automáticamente a través de la suscripción
-      } catch (error) {
-        console.error('Error rejoining player:', error);
         throw error;
       }
     },

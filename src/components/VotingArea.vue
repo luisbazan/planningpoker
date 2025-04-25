@@ -14,14 +14,14 @@
           @click="$emit('vote', value)"
           class="relative group aspect-[2/3] min-h-[60px] rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm overflow-hidden"
           :class="{ 
-            'bg-gradient-to-br from-blue-500 to-blue-600 ring-2 ring-blue-400 shadow-lg scale-105': currentVote === value,
-            'bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300 hover:border-slate-400 hover:from-slate-200 hover:to-slate-300': currentVote !== value
+            'bg-gradient-to-br from-blue-500 to-blue-600 ring-2 ring-blue-400 shadow-lg scale-105': String(currentVote) === String(value),
+            'bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300 hover:border-slate-400 hover:from-slate-200 hover:to-slate-300': String(currentVote) !== String(value)
           }">
           <span class="relative text-lg font-bold" :class="{
-            'text-white': currentVote === value,
-            'text-slate-700': currentVote !== value
+            'text-white': String(currentVote) === String(value),
+            'text-slate-700': String(currentVote) !== String(value)
           }">{{ value }}</span>
-          <div v-if="currentVote === value" class="absolute inset-0 bg-blue-400/10 animate-pulse"></div>
+          <div v-if="String(currentVote) === String(value)" class="absolute inset-0 bg-blue-400/10 animate-pulse"></div>
         </button>
       </div>
     </div>
