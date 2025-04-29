@@ -77,14 +77,17 @@ const isPlayerInGame = computed(() => {
 
 const emit = defineEmits<{
   (e: 'vote', value: number | string): void;
+  (e: 'localVoteUpdate', value: number | string): void;
 }>();
 
 async function handleVote(value: number | string) {
+  // Optimistic update - immediately show the vote locally
+  emit('localVoteUpdate', value);
+  
   loadingVote.value = value;
   try {
     await emit('vote', value);
   } finally {
-    // Reset loading state after a short delay to ensure the animation is visible
     setTimeout(() => {
       loadingVote.value = null;
     }, 300);

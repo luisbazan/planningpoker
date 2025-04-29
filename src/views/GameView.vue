@@ -26,11 +26,12 @@
         <!-- Voting Area at the bottom -->
         <div class="max-w-2xl mx-auto">
           <VotingArea
-            :current-vote="currentPlayerVote"
+            :current-vote="optimisticVote || currentPlayerVote"
             :is-reveal-enabled="currentGame?.status === 'revealed'"
             :players="currentGame?.players || []"
             :current-player-id="playerId"
             @vote="handleVote"
+            @local-vote-update="handleLocalVoteUpdate"
           />
         </div>
       </div>
@@ -81,6 +82,7 @@ const confirmationModalMessage = ref('');
 const confirmationModalAction = ref<'remove' | 'transfer' | null>(null);
 const pendingPlayerId = ref<string | null>(null);
 const isVoteLoading = ref(false);
+const optimisticVote = ref<string | number | null>(null);
 
 // Use store state directly
 const currentGame = computed(() => gameStore.currentGame);
@@ -171,6 +173,10 @@ const handlePlayerNameSubmit = async (name: string) => {
   }
 };
 
+function handleLocalVoteUpdate(vote: string | number) {
+  optimisticVote.value = vote;
+}
+
 const handleVote = async (vote: string | number) => {
   if (!playerId.value) return;
   
@@ -179,6 +185,8 @@ const handleVote = async (vote: string | number) => {
     await gameStore.updatePlayerVote(props.id, playerId.value, vote);
   } finally {
     isVoteLoading.value = false;
+    // Clear the optimistic vote after the real update
+    optimisticVote.value = null;
   }
 };
 
