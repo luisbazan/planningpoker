@@ -66,6 +66,8 @@ import CircularPlayerLayout from '@/components/CircularPlayerLayout.vue';
 import VotingArea from '@/components/VotingArea.vue';
 import PlayerNameModal from '@/components/PlayerNameModal.vue';
 import ConfirmationModal from '@/components/ConfirmationModal.vue';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/firebase';
 
 const props = defineProps<{
   id: string;
@@ -83,6 +85,7 @@ const confirmationModalAction = ref<'remove' | 'transfer' | null>(null);
 const pendingPlayerId = ref<string | null>(null);
 const isVoteLoading = ref(false);
 const optimisticVote = ref<string | number | null>(null);
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // Use store state directly
 const currentGame = computed(() => gameStore.currentGame);
@@ -106,6 +109,25 @@ let subscription: Subscription | null = null;
 
 onMounted(async () => {
   try {
+    // Check if we need to clean up a player from a previous session
+    const removePlayerId = localStorage.getItem(`removePlayer_${props.id}`);
+    const removeTimestamp = localStorage.getItem(`removePlayerTimestamp_${props.id}`);
+    
+    if (removePlayerId && removeTimestamp) {
+      const timestamp = parseInt(removeTimestamp);
+      // Only try to remove if the timestamp is less than 1 minute old
+      if (Date.now() - timestamp < 60 * 1000) {
+        try {
+          await gameStore.removePlayer(props.id, removePlayerId);
+        } catch (error) {
+          console.error('Error removing player from previous session:', error);
+        }
+      }
+      // Clean up the localStorage entries
+      localStorage.removeItem(`removePlayer_${props.id}`);
+      localStorage.removeItem(`removePlayerTimestamp_${props.id}`);
+    }
+
     let storedPlayerId = localStorage.getItem('playerId');
     let storedPlayerName = localStorage.getItem('playerName');
     
@@ -210,6 +232,12 @@ const nextRound = async () => {
 
 const leaveGame = async () => {
   try {
+    // Save current vote state before leaving
+    const currentPlayer = currentGame.value?.players.find(p => p.id === playerId.value);
+    if (currentPlayer?.vote) {
+      localStorage.setItem(`lastVote_${props.id}`, currentPlayer.vote.toString());
+    }
+    
     // Always clean up subscription first
     cleanupSubscription();
     
@@ -224,6 +252,14 @@ const leaveGame = async () => {
     router.push('/');
   } catch (error) {
     console.error('Error leaving game:', error);
+    // Even if there's an error, try to remove the player as a fallback
+    try {
+      if (playerId.value) {
+        await gameStore.removePlayer(props.id, playerId.value);
+      }
+    } catch (e) {
+      console.error('Failed fallback removal:', e);
+    }
     toast.error('Failed to leave game properly');
     router.push('/');
   }
@@ -284,26 +320,63 @@ const handleConfirmation = async () => {
 };
 
 // Add the handleBeforeUnload function
-const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
-  // Clean up subscription on page unload
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!currentGame.value || !playerId.value) return;
+
+  const currentPlayer = currentGame.value.players.find(p => p.id === playerId.value);
+  if (!currentPlayer) return;
+
+  const isCurrentPlayerHost = currentPlayer.isHost;
+  const hasVoted = currentPlayer.vote !== null;
+  const isVotingPhase = currentGame.value.status !== 'revealed';
+
+  // Clean up subscription synchronously
   cleanupSubscription();
 
-  // Don't remove player if votes are revealed or if the player is the host
-  if (playerId.value && currentGame.value && 
-      currentGame.value.status !== 'revealed' && 
-      !currentGame.value.players.find(p => p.id === playerId.value && p.isHost)) {
-    try {
-      await gameStore.removePlayer(props.id, playerId.value);
-    } catch (error) {
-      console.error('Error removing player on window close:', error);
-    }
+  // Save current vote if exists
+  if (currentPlayer.vote) {
+    localStorage.setItem(`lastVote_${props.id}`, currentPlayer.vote.toString());
   }
 
-  // Only show warning dialog if player has voted in current round
-  const hasVoted = currentGame.value?.players.find(p => p.id === playerId.value)?.vote !== null;
-  if (hasVoted && currentGame.value?.status !== 'revealed') {
+  // Show confirmation if player has voted or if voting is in progress
+  if (isVotingPhase && !isCurrentPlayerHost && (hasVoted || currentGame.value.players.some(p => p.vote !== null))) {
+    const message = hasVoted 
+      ? 'You have already voted in this round. If you leave now, your vote will be removed. Are you sure?'
+      : 'Voting is in progress. If you leave now, you will be removed from the game. Are you sure?';
     event.preventDefault();
-    event.returnValue = '';
+    event.returnValue = message;
+  }
+
+  // Remove player if not host and votes are not revealed
+  if (!isCurrentPlayerHost && isVotingPhase) {
+    try {
+      // Use a synchronous request to ensure it completes before page unload
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${window.location.origin}/api/games/${props.id}/players/${playerId.value}/remove`, false);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify({
+        gameId: props.id,
+        playerId: playerId.value,
+        timestamp: Date.now()
+      }));
+
+      // Backup plan: Store in localStorage
+      localStorage.setItem(`removePlayer_${props.id}`, playerId.value);
+      localStorage.setItem(`removePlayerTimestamp_${props.id}`, Date.now().toString());
+    } catch (error) {
+      console.error('Failed to remove player:', error);
+      // If the XHR fails, try using the Firestore API directly
+      try {
+        const gameRef = doc(db, 'games', props.id);
+        const updatedPlayers = currentGame.value.players.filter(p => p.id !== playerId.value);
+        updateDoc(gameRef, {
+          players: updatedPlayers,
+          updatedAt: new Date()
+        });
+      } catch (e) {
+        console.error('Failed backup removal:', e);
+      }
+    }
   }
 };
 

@@ -13,31 +13,42 @@
           <div v-if="player.isHost" 
             class="relative transform transition-all duration-500 animate-fade-in">
             <div class="flex flex-col items-center">
-              <div class="relative">
-                <div class="player-card shadow-lg group"
+              <div class="player-card-container">
+                <div class="flip-card group"
                   :class="{
-                    'selected': player.id === currentPlayerId,
-                    'revealed': isRevealEnabled,
-                    'has-voted': (player.vote !== null || (player.id === currentPlayerId && isVoteLoading)) && !isRevealEnabled,
-                    'bg-slate-100': !isRevealEnabled && !player.vote && !(player.id === currentPlayerId && isVoteLoading),
-                    'loading': player.id === currentPlayerId && isVoteLoading
+                    'is-flipped': isRevealEnabled,
+                    'is-selected': player.id === currentPlayerId,
+                    'has-voted': (player.vote !== null || (player.id === currentPlayerId && isVoteLoading)) && !isRevealEnabled
                   }">
-                  <template v-if="player.id === currentPlayerId && isVoteLoading">
-                    <div class="flex items-center justify-center">
-                      <div class="h-6 w-6 rounded-full border-2 border-t-transparent border-emerald-500 animate-spin"></div>
+                  <!-- Card Front -->
+                  <div class="flip-card-inner">
+                    <div class="flip-card-front">
+                      <template v-if="player.id === currentPlayerId && isVoteLoading">
+                        <div class="flex items-center justify-center h-full">
+                          <div class="h-6 w-6 rounded-full border-2 border-t-transparent border-emerald-500 animate-spin"></div>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <div class="flex items-center justify-center h-full">
+                          <span v-if="player.vote !== null || (player.id === currentPlayerId && isVoteLoading)" 
+                            class="text-xl font-bold text-emerald-500">
+                            ✓
+                          </span>
+                          <span v-else class="text-xl font-bold text-slate-300">
+                            ?
+                          </span>
+                        </div>
+                      </template>
                     </div>
-                  </template>
-                  <template v-else>
-                    <span v-if="isRevealEnabled" class="text-2xl font-bold text-white">
-                      {{ player.vote ?? '?' }}
-                    </span>
-                    <span v-else-if="player.vote !== null || (player.id === currentPlayerId && isVoteLoading)" class="text-xl font-bold text-emerald-500">
-                      ✓
-                    </span>
-                    <span v-else class="text-xl font-bold text-slate-300">
-                      ?
-                    </span>
-                  </template>
+                    <!-- Card Back -->
+                    <div class="flip-card-back">
+                      <div class="flex items-center justify-center h-full">
+                        <span class="text-2xl font-bold text-white">
+                          {{ player.vote ?? '?' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div class="absolute -top-1 -right-1 px-2 py-0.5 text-xs font-semibold rounded-full shadow-sm"
                   :class="{
@@ -57,36 +68,48 @@
           <div v-if="!player.isHost" 
             class="relative transform transition-all duration-500 animate-fade-in">
             <div class="flex flex-col items-center">
-              <div class="relative">
-                <div class="player-card shadow-lg group"
+              <div class="player-card-container">
+                <div class="flip-card group"
                   :class="{
-                    'selected': player.id === currentPlayerId,
-                    'revealed': isRevealEnabled,
-                    'has-voted': (player.vote !== null || (player.id === currentPlayerId && isVoteLoading)) && !isRevealEnabled,
-                    'bg-slate-100': !isRevealEnabled && !player.vote && !(player.id === currentPlayerId && isVoteLoading),
-                    'loading': player.id === currentPlayerId && isVoteLoading
+                    'is-flipped': isRevealEnabled,
+                    'is-selected': player.id === currentPlayerId,
+                    'has-voted': (player.vote !== null || (player.id === currentPlayerId && isVoteLoading)) && !isRevealEnabled
                   }">
-                  <template v-if="player.id === currentPlayerId && isVoteLoading">
-                    <div class="flex items-center justify-center">
-                      <div class="h-6 w-6 rounded-full border-2 border-t-transparent border-emerald-500 animate-spin"></div>
+                  <!-- Card Front -->
+                  <div class="flip-card-inner">
+                    <div class="flip-card-front">
+                      <template v-if="player.id === currentPlayerId && isVoteLoading">
+                        <div class="flex items-center justify-center h-full">
+                          <div class="h-6 w-6 rounded-full border-2 border-t-transparent border-emerald-500 animate-spin"></div>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <div class="flex items-center justify-center h-full">
+                          <span v-if="player.vote !== null || (player.id === currentPlayerId && isVoteLoading)" 
+                            class="text-xl font-bold text-emerald-500">
+                            ✓
+                          </span>
+                          <span v-else class="text-xl font-bold text-slate-300">
+                            ?
+                          </span>
+                        </div>
+                      </template>
                     </div>
-                  </template>
-                  <template v-else>
-                    <span v-if="isRevealEnabled" class="text-2xl font-bold text-white">
-                      {{ player.vote ?? '?' }}
-                    </span>
-                    <span v-else-if="player.vote !== null || (player.id === currentPlayerId && isVoteLoading)" class="text-xl font-bold text-emerald-500">
-                      ✓
-                    </span>
-                    <span v-else class="text-xl font-bold text-slate-300">
-                      ?
-                    </span>
-                  </template>
-                  <div v-if="isHost && player.id !== currentPlayerId && canShowActions" 
-                    class="absolute -right-2 top-0 bottom-0 flex flex-col justify-between py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <!-- Card Back -->
+                    <div class="flip-card-back">
+                      <div class="flex items-center justify-center h-full">
+                        <span class="text-2xl font-bold text-white">
+                          {{ player.vote ?? '?' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Action Buttons -->
+                  <div v-if="isHost && !player.isHost && canShowActions" 
+                    class="absolute -right-2 top-0 bottom-0 flex flex-col justify-between py-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                     <button
-                      @click="$emit('remove-player', player.id)"
-                      class="p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transform hover:scale-110 transition-all"
+                      @click.stop="$emit('remove-player', player.id)"
+                      class="p-1.5 text-white bg-red-500 rounded-full shadow-lg hover:bg-red-600 transform hover:scale-110 transition-all"
                       title="Remove player"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -94,9 +117,9 @@
                       </svg>
                     </button>
 
-                    <button v-if="!player.isHost"
-                      @click="$emit('transfer-host', player.id)"
-                      class="p-1.5 bg-indigo-500 text-white rounded-full shadow-lg hover:bg-indigo-600 transform hover:scale-110 transition-all"
+                    <button
+                      @click.stop="$emit('transfer-host', player.id)"
+                      class="p-1.5 text-white bg-indigo-500 rounded-full shadow-lg hover:bg-indigo-600 transform hover:scale-110 transition-all"
                       title="Make host"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -292,55 +315,62 @@ const getZIndex = (index: number) => {
 </script>
 
 <style scoped>
-.player-card {
-  @apply relative flex items-center justify-center w-20 h-28 rounded-lg transition-all duration-300;
+.player-card-container {
+  @apply relative;
 }
 
-.player-card.loading {
-  @apply bg-emerald-50;
+.flip-card {
+  @apply w-20 h-28 relative cursor-pointer;
+  perspective: 1000px;
 }
 
-.player-card.selected {
-  @apply ring-2 ring-blue-500;
+.flip-card-inner {
+  @apply relative w-full h-full transition-transform duration-700 shadow-lg rounded-lg;
+  transform-style: preserve-3d;
 }
 
-.player-card.revealed {
-  @apply bg-gradient-to-br from-blue-500 to-blue-600 transform scale-105;
+.is-flipped .flip-card-inner {
+  transform: rotateY(180deg);
 }
 
-.player-card.has-voted {
+.flip-card-front,
+.flip-card-back {
+  @apply absolute w-full h-full rounded-lg;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.flip-card-front {
+  @apply bg-white;
+}
+
+.flip-card-back {
+  @apply bg-gradient-to-br from-blue-500 to-blue-600;
+  transform: rotateY(180deg);
+}
+
+.has-voted .flip-card-front {
   @apply bg-gradient-to-br from-emerald-50 to-emerald-100 ring-2 ring-emerald-500/30;
 }
 
-.player-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-}
-
-.player-card.selected {
+.is-selected .flip-card-front {
   @apply ring-2 ring-blue-500;
-  animation: pulse-soft 2s ease-in-out infinite;
 }
 
-.player-card.has-voted {
-  @apply ring-2 ring-emerald-500/30;
-}
-
-.player-card.revealed {
-  @apply bg-gradient-to-br from-blue-600 to-blue-700 ring-2 ring-blue-400/50;
-  transform: scale(1.05);
-}
-
-@keyframes pulse-winner {
+@keyframes pulse-soft {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
 }
 
 @keyframes fade-in {
@@ -352,9 +382,5 @@ const getZIndex = (index: number) => {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out forwards;
 }
 </style> 
